@@ -1,6 +1,6 @@
 {
   "ext_name": { "message": "skimcast" },
-  "ext_description": { "message": "Linki yapıştır, zaman damgalı özeti al — YouTube, podcast, makale. Ücretsiz (kendi Gemini API anahtarınla)." },
+  "ext_description": { "message": "Linki yapıştır, zaman damgalı özeti al — YouTube, podcast, makale. Ücretsiz (kendi Groq API anahtarınla)." },
   "popup_title": { "message": "skimcast" },
   "url_label": { "message": "Link" },
   "url_placeholder": { "message": "YouTube, podcast RSS, Apple Podcasts, makale…" },
@@ -14,14 +14,14 @@
   "error_prefix": { "message": "Hata:" },
   "error_no_url": { "message": "Önce bir link gir." },
   "settings_label": { "message": "Ayarlar" },
-  "api_key_label": { "message": "Gemini API anahtarı" },
-  "api_key_placeholder": { "message": "AIza…" },
-  "api_key_hint": { "message": "Ücretsiz, kredi kartı gerekmez — ai.google.dev üzerinden alabilirsin." },
+  "api_key_label": { "message": "Groq API anahtarı" },
+  "api_key_placeholder": { "message": "gsk_…" },
+  "api_key_hint": { "message": "Ücretsiz, kredi kartı gerekmez — console.groq.com üzerinden alabilirsin." },
   "api_key_save": { "message": "Kaydet" },
   "api_key_saved": { "message": "Kaydedildi." },
   "error_no_result": { "message": "URL'de sonuç kimliği yok." },
   "error_result_not_found": { "message": "Bu sonuç bulunamadı (daha önce görüntülenmiş ya da uzantı yeniden yüklenmiş olabilir)." },
   "copy_btn": { "message": "Özeti kopyala" },
   "copied": { "message": "Kopyalandı!" },
-  "footer_note": { "message": "YouTube, transcript etiketi olan podcast RSS/Apple Podcasts akışları ve makale sayfaları için çalışır. Özetleme için ücretsiz bir Gemini API anahtarı gerekir (aşağıdaki Ayarlar'a bak) — maliyet yok, kart istemez." }
+  "footer_note": { "message": "YouTube, transcript etiketi olan podcast RSS/Apple Podcasts akışları ve makale sayfaları için çalışır. Özetleme için ücretsiz bir Groq API anahtarı gerekir (aşağıdaki Ayarlar'a bak) — maliyet yok, kart istemez." }
 }

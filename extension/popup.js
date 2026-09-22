@@ -1,4 +1,4 @@
-// skimcast (uzantı): popup.js — arayüz, dil seçimi, Gemini API anahtarı ayarı. Transcript alma +
+// skimcast (uzantı): popup.js — arayüz, dil seçimi, Groq API anahtarı ayarı. Transcript alma +
 // özetleme + sonuç sayfasını açma tamamı background.js'te biter.
 
 const LANGS = [
@@ -77,13 +77,13 @@ async function run() {
 async function initSettings() {
   const input = document.getElementById("apiKey");
   const details = document.getElementById("settings");
-  const { skimcastApiKey } = await chrome.storage.local.get("skimcastApiKey");
-  if (skimcastApiKey) input.value = skimcastApiKey;
+  const { skimcastGroqApiKey } = await chrome.storage.local.get("skimcastGroqApiKey");
+  if (skimcastGroqApiKey) input.value = skimcastGroqApiKey;
   else details.open = true; // anahtar yoksa ayarları açık göster, kullanıcı kaçırmasın
 
   document.getElementById("saveKey").addEventListener("click", async () => {
     const key = input.value.trim();
-    await chrome.storage.local.set({ skimcastApiKey: key });
+    await chrome.storage.local.set({ skimcastGroqApiKey: key });
     const statusEl = document.getElementById("keyStatus");
     statusEl.textContent = t("api_key_saved");
     setTimeout(() => { statusEl.textContent = ""; }, 2000);

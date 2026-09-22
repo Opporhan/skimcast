@@ -15,7 +15,7 @@
   "permissions": ["storage", "activeTab", "nativeMessaging"],
   "host_permissions": [
     "https://itunes.apple.com/*",
-    "https://generativelanguage.googleapis.com/*",
+    "https://api.groq.com/*",
     "http://*/*",
     "https://*/*"
   ]

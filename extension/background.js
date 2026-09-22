@@ -216,11 +216,12 @@ function buildTranscriptText(t) {
   return blocks.join("\n");
 }
 
-// ---------------------------------------------------------------- özetleme (Gemini, ücretsiz katman)
+// ---------------------------------------------------------------- özetleme (Groq, ücretsiz katman)
 // claude.ai'ye sekme açıp yapıştırmak yerine özeti doğrudan uzantı içinde üretiyoruz. Bunun için gerçek
-// bir modele istek atmak şart; ücretsiz kalması için Google'ın kredi kartı istemeyen ücretsiz Gemini API
-// katmanını kullanıyoruz (kullanıcı kendi anahtarını ai.google.dev'den alıp ayarlara giriyor).
-const GEMINI_MODEL = "gemini-3.6-flash"; // Google 2.0-flash'ı emekliye ayırdı, bu şu an geçerli ücretsiz-katman modeli
+// bir modele istek atmak şart. Önce Gemini kullanıldı ama en yeni modelin (gemini-3.6-flash) ücretsiz
+// katmanı günde yalnızca 20 istekle sınırlıydı; Groq'un ücretsiz katmanı (kredi kartı istemez,
+// console.groq.com) çok daha cömert, o yüzden buraya geçildi.
+const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 function reliabilityNote(method) {
   if (/otomatik|whisper/.test(method)) return "This transcript is auto-generated; names and numbers may contain errors.";
@@ -243,76 +244,63 @@ ${text}
 --- TRANSCRIPT END ---`;
 }
 
-// Not: Akış (streaming) denendi ama gerçek bir API anahtarıyla hiç uçtan uca test edilemediği için
-// ayrıştırma hatalıydı ve sonsuza kadar "yazılıyor" gösterip hiç sonuç vermiyordu (her ham bayt
-// geldiğinde zaman aşımı sıfırlanıyor, ama metin hiç ayrıştırılamıyordu). Kaldırıldı; bunun yerine
-// kullanıcıyla iki kez gerçek çıktıyla doğrulanmış, tek istekli, tam yanıtı bekleyen basit yöntem var.
-// Gemini'nin RESOURCE_EXHAUSTED (429) hatası genelde tam ne kadar beklenmesi gerektiğini
-// error.details içinde "RetryInfo"nun retryDelay alanında söylüyor (ör. "5.6s"); tahmin etmek yerine
-// bunu okuyoruz.
-function parseRetryDelayMs(data) {
-  const info = data?.error?.details?.find((d) => String(d["@type"] || "").includes("RetryInfo"));
-  const sec = parseFloat(info?.retryDelay || "");
-  return Number.isFinite(sec) ? Math.ceil(sec * 1000) : null;
-}
-
-async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+// Groq, OpenAI ile aynı istek/cevap biçimini kullanıyor (chat/completions). Hız sınırına (429) takılırsa
+// sunucunun standart "Retry-After" başlığını okuyup tahmin etmek yerine onu bekliyoruz.
+async function callGroqOnce(apiKey, prompt, maxTokens) {
+  const url = "https://api.groq.com/openai/v1/chat/completions";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
   let res;
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens } }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: maxTokens }),
       signal: controller.signal,
     });
   } catch (e) {
-    throw new SkimError(e.name === "AbortError" ? "Gemini 90 saniyede yanıt vermedi (zaman aşımı)." : `Gemini'ye bağlanılamadı: ${e.message}`);
+    throw new SkimError(e.name === "AbortError" ? "Groq 90 saniyede yanıt vermedi (zaman aşımı)." : `Groq'a bağlanılamadı: ${e.message}`);
   } finally {
     clearTimeout(timeout);
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const err = new SkimError(`Gemini hata döndürdü (${res.status}): ${data?.error?.message || "bilinmeyen hata"}.`);
+    const err = new SkimError(`Groq hata döndürdü (${res.status}): ${data?.error?.message || "bilinmeyen hata"}.`);
     err.status = res.status;
-    err.retryDelayMs = parseRetryDelayMs(data);
+    const retryAfter = res.headers.get("retry-after");
+    err.retryDelayMs = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000) : null;
     throw err;
   }
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-  if (!text.trim()) {
-    const reason = data?.candidates?.[0]?.finishReason;
-    throw new SkimError(`Gemini boş yanıt döndürdü${reason ? ` (${reason})` : ""}.`);
-  }
+  const text = data?.choices?.[0]?.message?.content || "";
+  if (!text.trim()) throw new SkimError("Groq boş yanıt döndürdü.");
   return text.trim();
 }
 
-// Geçici hatalar: 429 (hız sınırı) ve 503 (Google tarafında yoğunluk). Yalnızca BİR kez yeniden dener
-// (her deneme uzun bir video için 90 saniyeye kadar sürebiliyor; 3 kez denemek 5-6 dakikaya çıkıp
-// "hiç bitmiyor" hissi veriyordu). Google'ın belirttiği bekleme süresi varsa onu kullanır (en fazla 15sn).
+// Geçici hatalar: 429 (hız sınırı) ve 503 (Groq tarafında yoğunluk). Yalnızca BİR kez yeniden dener
+// (her deneme uzun bir video için 90 saniyeye kadar sürebiliyor; birden çok deneme dakikalarca sürüp
+// "hiç bitmiyor" hissi veriyordu). Sunucunun belirttiği bekleme süresi varsa onu kullanır (en fazla 15sn).
 const RETRYABLE_STATUS = new Set([429, 503]);
 
-async function callGemini(apiKey, prompt) {
+async function callGroq(apiKey, prompt) {
   try {
-    return await callGeminiOnce(apiKey, prompt, 8192);
+    return await callGroqOnce(apiKey, prompt, 4096);
   } catch (e) {
     if (!RETRYABLE_STATUS.has(e.status)) {
-      if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
+      if (e.status === 401) e.message += " API anahtarını kontrol et.";
       throw e;
     }
     await new Promise((r) => setTimeout(r, Math.min(e.retryDelayMs ?? 3000, 15000)));
-    return await callGeminiOnce(apiKey, prompt, 8192);
+    return await callGroqOnce(apiKey, prompt, 4096);
   }
 }
 
 async function getApiKey() {
-  const { skimcastApiKey } = await chrome.storage.local.get("skimcastApiKey");
-  if (!skimcastApiKey) {
-    throw new SkimError("Gemini API anahtarı ayarlanmamış. Uzantı popup'ında ayarlar bölümüne ücretsiz " +
-      "bir anahtar gir (ai.google.dev/ üzerinden alınabilir, kredi kartı gerekmez).");
+  const { skimcastGroqApiKey } = await chrome.storage.local.get("skimcastGroqApiKey");
+  if (!skimcastGroqApiKey) {
+    throw new SkimError("Groq API anahtarı ayarlanmamış. Uzantı popup'ında ayarlar bölümüne ücretsiz " +
+      "bir anahtar gir (console.groq.com üzerinden alınabilir, kredi kartı gerekmez).");
   }
-  return skimcastApiKey;
+  return skimcastGroqApiKey;
 }
 
 const resultKey = (id) => `skimcastResult:${id}`;
@@ -324,8 +312,8 @@ async function setResult(id, patch) {
 }
 
 // Tüm akış (transcript + özetleme + sonuç sayfasını açma) burada biter. Sonuç sayfası, transcript
-// alınır alınmaz (özet daha yazılmadan) açılıyor ve Gemini'nin akışını canlı gösteriyor — popup da
-// bu noktada kapanabilir, iş arka planda storage üzerinden sonuç sayfasına akmaya devam eder.
+// alınır alınmaz (özet daha yazılmadan) "yükleniyor" durumuyla açılıyor — popup da bu noktada
+// kapanabilir, iş arka planda storage üzerinden sonuç sayfasına akmaya devam eder.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.action !== "summarize") return;
   const langs = (msg.lang || "tr,en").split(",").map((s) => s.trim().split("-")[0]).filter(Boolean);
@@ -344,7 +332,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ ok: true, meta }); // popup burada rahatça kapanabilir, işi arka planda bitiriyoruz
 
       try {
-        const markdown = await callGemini(apiKey, buildPrompt(meta, text, msg.langName || "English"));
+        const markdown = await callGroq(apiKey, buildPrompt(meta, text, msg.langName || "English"));
         await setResult(id, { markdown, status: "done" });
       } catch (e) {
         await setResult(id, { status: "error", error: e instanceof SkimError ? e.message : String(e.message || e) });

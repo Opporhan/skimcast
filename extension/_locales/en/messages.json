@@ -1,6 +1,6 @@
 {
   "ext_name": { "message": "skimcast" },
-  "ext_description": { "message": "Paste a link, get a timestamped summary — YouTube, podcasts, articles. Free (your own Gemini API key)." },
+  "ext_description": { "message": "Paste a link, get a timestamped summary — YouTube, podcasts, articles. Free (your own Groq API key)." },
   "popup_title": { "message": "skimcast" },
   "url_label": { "message": "Link" },
   "url_placeholder": { "message": "YouTube, podcast RSS, Apple Podcasts, article…" },
@@ -14,14 +14,14 @@
   "error_prefix": { "message": "Error:" },
   "error_no_url": { "message": "Enter a link first." },
   "settings_label": { "message": "Settings" },
-  "api_key_label": { "message": "Gemini API key" },
-  "api_key_placeholder": { "message": "AIza…" },
-  "api_key_hint": { "message": "Free, no card required — get one at ai.google.dev." },
+  "api_key_label": { "message": "Groq API key" },
+  "api_key_placeholder": { "message": "gsk_…" },
+  "api_key_hint": { "message": "Free, no card required — get one at console.groq.com." },
   "api_key_save": { "message": "Save" },
   "api_key_saved": { "message": "Saved." },
   "error_no_result": { "message": "No result ID in the URL." },
   "error_result_not_found": { "message": "This result was not found (it may have already been viewed, or the extension was reloaded)." },
   "copy_btn": { "message": "Copy summary" },
   "copied": { "message": "Copied!" },
-  "footer_note": { "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. Summarizing needs a free Gemini API key (see Settings below) — no cost, no card." }
+  "footer_note": { "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. Summarizing needs a free Groq API key (see Settings below) — no cost, no card." }
 }
