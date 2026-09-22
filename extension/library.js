@@ -1,6 +1,6 @@
 // skimcast (uzantı): library.js — arşivlenmiş tüm transcript'lerin listesi, aralarında tam metin arama,
-// klasörlere ayırma (ör. "Yapay Zeka", "Felsefe"), sabitleme, sıralama ve tüm videolardaki favori
-// (yıldızlanmış) anların tek bir yerde toplandığı "Favoriler" görünümü.
+// "Dosyalarım" bölümünde klasörlere ayırma (ör. "Yapay Zeka", "Felsefe"), sabitleme, sıralama ve tüm
+// videolardaki favori (yıldızlanmış) anların tek bir yerde toplandığı "Favoriler" görünümü.
 
 function t(key) { return chrome.i18n.getMessage(key) || key; }
 
@@ -53,6 +53,34 @@ function sortIndex(index, sortBy) {
 
 function allFolders(index) {
   return [...new Set(index.map((e) => e.folder).filter(Boolean))].sort();
+}
+
+// ------------------------------------------------------------ "yeni klasör" modalı (ekranın ortasında)
+function openFolderModal() {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal">
+        <h2>${t("new_folder_title")}</h2>
+        <input id="modalFolderName" type="text" placeholder="${escapeHtml(t("new_folder_name_placeholder"))}">
+        <div class="modal-actions">
+          <button id="modalCancel">${t("modal_cancel")}</button>
+          <button id="modalCreate" class="primary">${t("modal_create")}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector("#modalFolderName");
+    requestAnimationFrame(() => input.focus());
+    const close = (value) => { overlay.remove(); resolve(value); };
+    overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
+    overlay.querySelector("#modalCancel").addEventListener("click", () => close(null));
+    overlay.querySelector("#modalCreate").addEventListener("click", () => close(input.value.trim() || null));
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") close(input.value.trim() || null);
+      if (e.key === "Escape") close(null);
+    });
+  });
 }
 
 function folderSelectHtml(e, folders) {
@@ -134,8 +162,14 @@ async function init() {
       </div>
       <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
     </header>
-    <div class="controls">
-      <input id="search" type="text" placeholder="${escapeHtml(t("library_search_placeholder"))}">
+    <input id="search" class="search-input" type="text" placeholder="${escapeHtml(t("library_search_placeholder"))}">
+
+    <section class="folders-section">
+      <h2>${t("folders_section_title")}</h2>
+      <div id="folders" class="folder-grid"></div>
+    </section>
+
+    <div class="controls-row">
       <select id="sortBy">
         <option value="newest">${t("sort_newest")}</option>
         <option value="oldest">${t("sort_oldest")}</option>
@@ -143,7 +177,6 @@ async function init() {
       </select>
       <button id="favViewBtn" class="toggle-btn">${t("fav_view_btn")}</button>
     </div>
-    <div id="folders" class="folders"></div>
     <div id="list"></div>
   `;
   mountThemeButton(document.getElementById("themeBtn"));
@@ -157,14 +190,24 @@ async function init() {
   let favView = false;
   let activeFolder = null; // null = Tümü
 
-  function renderFolderTabs() {
+  function renderFolderCards() {
     const folders = allFolders(index);
-    const tabs = [{ name: null, label: t("all_folders") }, ...folders.map((f) => ({ name: f, label: f })),
-      { name: NO_FOLDER, label: t("no_folder") }];
-    foldersEl.innerHTML = tabs.map((f) =>
-      `<button class="folder-tab${activeFolder === f.name ? " active" : ""}" data-folder="${escapeHtml(f.name ?? "")}" data-all="${f.name === null ? "1" : "0"}">${escapeHtml(f.label)}</button>`
-    ).join("") + `<input id="newFolder" class="folder-tab" placeholder="${escapeHtml(t("new_folder_placeholder"))}">`;
-    foldersEl.hidden = favView;
+    const countFor = (name) => name === null ? index.length
+      : name === NO_FOLDER ? index.filter((e) => !e.folder).length
+      : index.filter((e) => e.folder === name).length;
+    const cards = [{ name: null, label: t("all_folders") }, { name: NO_FOLDER, label: t("no_folder") },
+      ...folders.map((f) => ({ name: f, label: f }))];
+    foldersEl.innerHTML = cards.map((f) => `
+      <button class="folder-card${activeFolder === f.name ? " active" : ""}" data-folder="${escapeHtml(f.name ?? "")}" data-all="${f.name === null ? "1" : "0"}">
+        <span class="folder-icon">📁</span>
+        <span class="folder-name">${escapeHtml(f.label)}</span>
+        <span class="folder-count">${countFor(f.name)}</span>
+      </button>`).join("") +
+      `<button class="folder-card folder-card-add" id="newFolderBtn">
+        <span class="folder-icon">＋</span>
+        <span class="folder-name">${t("new_folder_option").replace("…", "")}</span>
+      </button>`;
+    foldersEl.parentElement.hidden = favView;
   }
 
   function renderList() {
@@ -195,7 +238,7 @@ async function init() {
   }
 
   function render() {
-    renderFolderTabs();
+    renderFolderCards();
     if (favView) { renderFavorites(); return; }
     searchInput.value.trim() ? renderSearch(searchInput.value) : renderList();
   }
@@ -212,18 +255,16 @@ async function init() {
     render();
   });
 
-  foldersEl.addEventListener("click", (e) => {
-    const tab = e.target.closest(".folder-tab");
-    if (!tab) return;
-    activeFolder = tab.dataset.all === "1" ? null : tab.dataset.folder;
-    render();
-  });
-  foldersEl.addEventListener("keydown", (e) => {
-    if (e.target.id !== "newFolder" || e.key !== "Enter") return;
-    const name = e.target.value.trim();
-    if (!name) return;
-    activeFolder = name; // yeni klasör boş başlar, sadece görünüme geç; ilk video atanınca listede kalıcılaşır
-    e.target.value = "";
+  foldersEl.addEventListener("click", async (e) => {
+    if (e.target.closest("#newFolderBtn")) {
+      const name = await openFolderModal();
+      if (name) activeFolder = name; // boş klasör: ilk video atanınca kalıcılaşır
+      render();
+      return;
+    }
+    const card = e.target.closest(".folder-card");
+    if (!card) return;
+    activeFolder = card.dataset.all === "1" ? null : card.dataset.folder;
     render();
   });
 
@@ -232,7 +273,7 @@ async function init() {
     if (!select) return;
     let folder = select.value;
     if (folder === "__new__") {
-      folder = (prompt(t("new_folder_prompt")) || "").trim();
+      folder = await openFolderModal() || "";
       if (!folder) { render(); return; }
     }
     await updateEntry(select.dataset.id, { folder });

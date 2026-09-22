@@ -98,7 +98,13 @@ async function init() {
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
       <button id="favOnlyBtn" class="toggle-btn">${t("fav_only_btn")}</button>
       <button id="copyBtn">${t("copy_btn")}</button>
-      <button id="downloadBtn">${t("download_btn")}</button>
+      <div class="download-wrap">
+        <button id="downloadBtn">${t("download_btn")}</button>
+        <div id="downloadMenu" class="download-menu" hidden>
+          <button id="downloadTxt">${t("download_as_txt")}</button>
+          <button id="downloadPdf">${t("download_as_pdf")}</button>
+        </div>
+      </div>
     </div>
     ${canTranslate ? `
     <div class="toolbar translate-bar">
@@ -225,7 +231,9 @@ async function init() {
       const matchesSearch = !q || row.dataset.text.includes(q);
       const matchesFav = !favOnlyOn || row.dataset.fav === "1";
       const visible = matchesSearch && matchesFav;
-      row.hidden = !visible;
+      row.style.display = visible ? "" : "none"; // NOT `row.hidden`: .block'un kendi "display: flex" kuralı
+      // (yazar stili) tarayıcının varsayılan "[hidden]{display:none}" kuralını eziyordu — gizlenen satırlar
+      // aslında hiç gizlenmiyordu. Doğrudan inline style her zaman kazanır.
       if (visible) anyVisible = true;
       const textSpan = row.querySelector(".text");
       if (!q) {
@@ -249,7 +257,7 @@ async function init() {
   if (initialQuery) {
     searchInput.value = initialQuery;
     applyFilters();
-    contentEl.querySelector(".block:not([hidden])")?.scrollIntoView({ block: "center" });
+    rows.find((row) => row.style.display !== "none")?.scrollIntoView({ block: "center" });
   }
 
   // ------------------------------------------------------------ kopyala / indir
@@ -260,15 +268,48 @@ async function init() {
     } catch { /* pano izni yoksa sessizce geç */ }
   });
 
-  document.getElementById("downloadBtn").addEventListener("click", () => {
+  const safeName = () => (meta.title || "transcript").replace(/[\\/:*?"<>|]+/g, " ").trim();
+
+  function downloadTxt() {
     const blob = new Blob([currentFullText()], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${(meta.title || "transcript").replace(/[\\/:*?"<>|]+/g, " ").trim()}.txt`;
+    a.download = `${safeName()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // Kendi PDF üretici kütüphanesi eklemek yerine tarayıcının kendi "Yazdır → PDF olarak kaydet"
+  // mekanizmasını kullanıyoruz: temiz, yazdırmaya uygun bir sayfa açıp otomatik yazdırma diyaloğunu
+  // tetikliyoruz. Tamamen yerel, hiçbir kütüphane/ağ isteği gerekmiyor.
+  function downloadPdf() {
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(meta.title || "transcript")}</title>
+<style>
+  body { font: 15px/1.6 -apple-system, "Segoe UI", sans-serif; color: #1d1d1f; max-width: 700px; margin: 48px auto; padding: 0 24px; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .meta { color: #6e6e73; font-size: 13px; margin-bottom: 24px; }
+  .line { margin: 0 0 10px; }
+  .time { color: #5b4fe0; font-variant-numeric: tabular-nums; margin-right: 6px; }
+</style></head><body>
+  <h1>${escapeHtml(meta.title || "")}</h1>
+  <div class="meta">${escapeHtml([meta.method, meta.duration].filter(Boolean).join(" · "))}</div>
+  ${blocks.map((b, i) => `<p class="line">${b.sec != null ? `<span class="time">[${fmtTime(b.sec)}]</span>` : ""}${escapeHtml(state.texts[i])}</p>`).join("\n")}
+  <script>window.onload = () => window.print();<\/script>
+</body></html>`;
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    chrome.tabs.create({ url: URL.createObjectURL(blob) });
+  }
+
+  const downloadBtn = document.getElementById("downloadBtn");
+  const downloadMenu = document.getElementById("downloadMenu");
+  downloadBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    downloadMenu.hidden = !downloadMenu.hidden;
   });
+  document.addEventListener("click", () => { downloadMenu.hidden = true; });
+  document.getElementById("downloadTxt").addEventListener("click", () => { downloadMenu.hidden = true; downloadTxt(); });
+  document.getElementById("downloadPdf").addEventListener("click", () => { downloadMenu.hidden = true; downloadPdf(); });
 
   // ------------------------------------------------------------ çeviri (cihaz üzerinde)
   if (!canTranslate) return;
@@ -327,7 +368,14 @@ async function init() {
       const translated = [];
       for (let i = 0; i < blocks.length; i++) {
         statusEl.textContent = `${t("translate_progress")} ${i + 1}/${blocks.length}`;
-        translated.push(await translator.translate(blocks[i].text));
+        // Tek bir cümlede çeviri motoru hata verirse (nadiren olabiliyor) tüm işlemi iptal etmek yerine
+        // o cümleyi orijinal haliyle bırakıp devam ediyoruz — bir hata yüzünden saatlerce süren bir
+        // çeviriyi baştan kaybetmek istemiyoruz.
+        try {
+          translated.push((await translator.translate(blocks[i].text)) || blocks[i].text);
+        } catch {
+          translated.push(blocks[i].text);
+        }
       }
       applyTexts(translated, target);
       statusEl.textContent = t("translate_done");
