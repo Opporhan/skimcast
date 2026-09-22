@@ -72,6 +72,17 @@ async function detectSourceLanguage(sampleText) {
   }
 }
 
+// Cihaz üzerindeki çeviri motoru bazı girdilerde "<b9000></b900>" gibi anlamsız, kendi iç etiketlerini
+// sızdırabiliyor (bilinen bir model tuhaflığı, hangi dilden hangi dile olursa olsun görülebiliyor).
+// Bunları temizliyoruz; temizlik sonrası metin boş kalırsa (tamamen sızıntıdan ibaretse) orijinal
+// metne düşüyoruz — hiçbir zaman bozuk/anlamsız bir çıktı gösterilmiyor.
+const LEAKED_TAG_RE = /<\/?[a-zA-Z][a-zA-Z0-9]*\/?>/g;
+function cleanTranslation(text, fallback) {
+  if (!text) return fallback;
+  const cleaned = text.replace(LEAKED_TAG_RE, "").replace(/\s{2,}/g, " ").trim();
+  return cleaned || fallback;
+}
+
 async function init() {
   await initLang();
   const app = document.getElementById("app");
@@ -587,7 +598,8 @@ async function init() {
         while (nextIndex < blocks.length) {
           const i = nextIndex++;
           try {
-            translated[i] = (await translator.translate(blocks[i].text)) || blocks[i].text;
+            const raw = await translator.translate(blocks[i].text);
+            translated[i] = cleanTranslation(raw, blocks[i].text);
           } catch {
             // Tek bir cümlede çeviri motoru hata verirse (nadiren olabiliyor) tüm işlemi iptal etmek
             // yerine o cümleyi orijinal haliyle bırakıp devam ediyoruz.
