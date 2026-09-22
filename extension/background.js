@@ -78,19 +78,29 @@ function scrapeTranscriptInPage() {
       }
       if (!btn) return resolve({ error: "no-button" });
       btn.click();
+      await sleep(400);
+      const panel = q('[target-id="engagement-panel-searchable-transcript"]');
+      if (panel) panel.scrollIntoView({ block: "center" }); // lazy render'ı (intersection observer) tetikle
 
       let segs = [];
-      for (let i = 0; i < 25; i++) {
-        await sleep(400);
+      for (let i = 0; i < 40; i++) {
+        await sleep(500);
         segs = qa("ytd-transcript-segment-renderer");
         if (segs.length) break;
+        // arka planda/gizli sekmede bazı bileşenler geç render olabilir; her turda tekrar tetikle
+        if (i % 5 === 0 && panel) panel.scrollIntoView({ block: "center" });
       }
       if (!segs.length) {
         // teşhis: panel gerçekten açıldı mı, içinde ne var? (seçici YouTube'da değişmiş olabilir)
-        const panel = q('[target-id="engagement-panel-searchable-transcript"]');
-        const debug = panel
-          ? `panel var, ${panel.querySelectorAll("*").length} alt öğe, metin: "${panel.innerText.slice(0, 200).replace(/\n+/g, " | ")}"`
-          : "panel DOM'da hiç yok (buton tıklaması paneli açmamış olabilir)";
+        let debug = "panel DOM'da hiç yok (buton tıklaması paneli açmamış olabilir)";
+        if (panel) {
+          const kids = [...panel.querySelectorAll("*")];
+          const tagCounts = {};
+          for (const k of kids) tagCounts[k.tagName] = (tagCounts[k.tagName] || 0) + 1;
+          const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 8)
+            .map(([t, c]) => `${t}:${c}`).join(", ");
+          debug = `panel var, ${kids.length} alt öğe [${topTags}], metin: "${panel.innerText.slice(0, 150).replace(/\n+/g, " | ")}"`;
+        }
         return resolve({ error: "no-segments", debug });
       }
 
