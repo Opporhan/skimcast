@@ -94,14 +94,18 @@ async function init() {
       <h1>${escapeHtml(meta.title || t("popup_title"))}</h1>
       <div class="meta">${escapeHtml(metaLine)}</div>
     </header>
-    <div class="toolbar">
+    <div class="search-row">
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
+    </div>
+    <div class="action-row">
       <button id="favOnlyBtn" class="toggle-btn">${t("fav_only_btn")}</button>
+      <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
+      <button id="moveBtn">${t("move_to_folder_btn")}</button>
       <button id="copyBtn">${t("copy_btn")}</button>
       <button id="downloadBtn">${t("download_btn")}</button>
     </div>
     ${canTranslate ? `
-    <div class="toolbar translate-bar">
+    <div class="translate-bar">
       <select id="translateLang"></select>
       <button id="translateBtn">${t("translate_btn")}</button>
       <button id="originalBtn" hidden>${t("translate_original_btn")}</button>
@@ -156,8 +160,10 @@ async function init() {
     await persistHighlights();
   }
 
-  function currentFullText() {
-    return blocks.map((b, i) => (b.sec != null ? `[${fmtTime(b.sec)}] ` : "") + state.texts[i]).join("\n");
+  // includeTimestamps verilmezse ekrandaki o anki tercihi (showTimestamps) kullanır — kopyala böyle
+  // çalışır; indirme modalında ayrıca açıkça seçilebiliyor.
+  function currentFullText(includeTimestamps = showTimestamps) {
+    return blocks.map((b, i) => (includeTimestamps && b.sec != null ? `[${fmtTime(b.sec)}] ` : "") + state.texts[i]).join("\n");
   }
 
   blocks.forEach((b, i) => {
@@ -247,6 +253,16 @@ async function init() {
     applyFilters();
   });
 
+  // Zaman damgaları varsayılan kapalı — ekranı sade tutmak için; isteyen "🕐" ile açıp kapatabiliyor.
+  // Aynı tercih kopyalarken de kullanılıyor (indirirken ayrıca, bağımsız olarak seçilebiliyor).
+  let showTimestamps = false;
+  const timeToggleBtn = document.getElementById("timeToggleBtn");
+  timeToggleBtn.addEventListener("click", () => {
+    showTimestamps = !showTimestamps;
+    timeToggleBtn.classList.toggle("active", showTimestamps);
+    contentEl.classList.toggle("show-times", showTimestamps);
+  });
+
   const initialQuery = new URLSearchParams(location.search).get("q");
   if (initialQuery) {
     searchInput.value = initialQuery;
@@ -255,17 +271,19 @@ async function init() {
   }
 
   // ------------------------------------------------------------ kopyala / indir
-  document.getElementById("copyBtn").addEventListener("click", async (e) => {
+  const copyBtn = document.getElementById("copyBtn");
+  copyBtn.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(currentFullText());
-      flashLabel(e.currentTarget, t("copied"));
+      flashLabel(copyBtn, `✓ ${t("copied")}`);
+      showToast(t("copied"));
     } catch { /* pano izni yoksa sessizce geç */ }
   });
 
   const safeName = () => (meta.title || "transcript").replace(/[\\/:*?"<>|]+/g, " ").trim();
 
-  function downloadTxt() {
-    const blob = new Blob([currentFullText()], { type: "text/plain;charset=utf-8" });
+  function downloadTxt(includeTimestamps) {
+    const blob = new Blob([currentFullText(includeTimestamps)], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -274,29 +292,39 @@ async function init() {
     URL.revokeObjectURL(url);
   }
 
-  // Kendi PDF üretici kütüphanesi eklemek yerine tarayıcının kendi "Yazdır → PDF olarak kaydet"
-  // mekanizmasını kullanıyoruz: temiz, yazdırmaya uygun bir sayfa açıp otomatik yazdırma diyaloğunu
-  // tetikliyoruz. Tamamen yerel, hiçbir kütüphane/ağ isteği gerekmiyor.
-  function downloadPdf() {
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(meta.title || "transcript")}</title>
-<style>
-  body { font: 15px/1.6 -apple-system, "Segoe UI", sans-serif; color: #1d1d1f; max-width: 700px; margin: 48px auto; padding: 0 24px; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  .meta { color: #6e6e73; font-size: 13px; margin-bottom: 24px; }
-  .line { margin: 0 0 10px; }
-  .time { color: #5b4fe0; font-variant-numeric: tabular-nums; margin-right: 6px; }
-</style></head><body>
-  <h1>${escapeHtml(meta.title || "")}</h1>
-  <div class="meta">${escapeHtml([meta.method, meta.duration].filter(Boolean).join(" · "))}</div>
-  ${blocks.map((b, i) => `<p class="line">${b.sec != null ? `<span class="time">[${fmtTime(b.sec)}]</span>` : ""}${escapeHtml(state.texts[i])}</p>`).join("\n")}
-  <script>window.onload = () => window.print();<\/script>
-</body></html>`;
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    chrome.tabs.create({ url: URL.createObjectURL(blob) });
+  // Gerçek bir PDF dosyası üretip DOĞRUDAN indirir (yeni sekme/yazdırma diyaloğu açmadan) — jsPDF +
+  // Türkçe karakterleri (ı ş ğ ü ö ç İ) destekleyen gömülü bir font (vendor/notosans-font.js) ile.
+  // Standart PDF fontları (Helvetica vb.) Türkçe'ye özgü karakterleri içermediği için gömülü font şart.
+  function downloadPdf(includeTimestamps) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    doc.addFileToVFS("NotoSans.ttf", NOTOSANS_TTF_BASE64);
+    doc.addFont("NotoSans.ttf", "NotoSans", "normal");
+    doc.setFont("NotoSans");
+
+    const margin = 48, pageW = doc.internal.pageSize.getWidth(), pageH = doc.internal.pageSize.getHeight();
+    const maxW = pageW - margin * 2;
+    let y = margin;
+    const addLine = (text, size, gap) => {
+      doc.setFontSize(size);
+      for (const line of doc.splitTextToSize(text, maxW)) {
+        if (y > pageH - margin) { doc.addPage(); y = margin; }
+        doc.text(line, margin, y);
+        y += size * 1.35;
+      }
+      y += gap;
+    };
+    addLine(meta.title || "", 16, 6);
+    doc.setTextColor(110, 110, 115);
+    addLine([meta.method, meta.duration].filter(Boolean).join(" · "), 10, 14);
+    doc.setTextColor(29, 29, 31);
+    blocks.forEach((b, i) => {
+      const prefix = includeTimestamps && b.sec != null ? `[${fmtTime(b.sec)}] ` : "";
+      addLine(prefix + state.texts[i], 11, 8);
+    });
+    doc.save(`${safeName()}.pdf`);
   }
 
-  // Önceki sürüm küçük bir açılır menü (dropdown) kullanıyordu; konumlandırması güvenilir değildi
-  // (boş/bozuk bir kutu gibi görünebiliyordu). Aynı, kanıtlanmış ortalanmış-modal deseniyle değiştirildi.
   function openDownloadModal() {
     return new Promise((resolve) => {
       const overlay = document.createElement("div");
@@ -304,7 +332,8 @@ async function init() {
       overlay.innerHTML = `
         <div class="modal">
           <h2>${t("download_btn")}</h2>
-          <div class="modal-actions" style="margin-top:0">
+          <label class="checkbox-row"><input type="checkbox" id="dlTimes"${showTimestamps ? " checked" : ""}> ${t("download_include_times")}</label>
+          <div class="modal-actions">
             <button id="asTxt" class="primary">${t("download_as_txt")}</button>
             <button id="asPdf" class="primary">${t("download_as_pdf")}</button>
           </div>
@@ -314,15 +343,88 @@ async function init() {
       const close = (choice) => { overlay.remove(); resolve(choice); };
       overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
       overlay.querySelector("#dlCancel").addEventListener("click", () => close(null));
-      overlay.querySelector("#asTxt").addEventListener("click", () => close("txt"));
-      overlay.querySelector("#asPdf").addEventListener("click", () => close("pdf"));
+      const withTimes = () => overlay.querySelector("#dlTimes").checked;
+      overlay.querySelector("#asTxt").addEventListener("click", () => close({ format: "txt", times: withTimes() }));
+      overlay.querySelector("#asPdf").addEventListener("click", () => close({ format: "pdf", times: withTimes() }));
     });
   }
 
   document.getElementById("downloadBtn").addEventListener("click", async () => {
     const choice = await openDownloadModal();
-    if (choice === "txt") downloadTxt();
-    if (choice === "pdf") downloadPdf();
+    if (!choice) return;
+    if (choice.format === "txt") downloadTxt(choice.times);
+    if (choice.format === "pdf") downloadPdf(choice.times);
+  });
+
+  // ------------------------------------------------------------ dosyaya taşı
+  const FOLDERS_KEY = "skimcastFolders";
+  const ARCHIVE_INDEX_KEY = "skimcastArchiveIndex";
+
+  async function getFolders() {
+    const { [FOLDERS_KEY]: folders = [] } = await chrome.storage.local.get(FOLDERS_KEY);
+    return folders;
+  }
+
+  async function assignFolder(folderName) {
+    entry.folder = folderName;
+    await chrome.storage.local.set({ [key]: entry });
+    const { [ARCHIVE_INDEX_KEY]: index = [] } = await chrome.storage.local.get(ARCHIVE_INDEX_KEY);
+    await chrome.storage.local.set({
+      [ARCHIVE_INDEX_KEY]: index.map((e) => (e.id === id ? { ...e, folder: folderName } : e)),
+    });
+  }
+
+  function folderIconHtml(icon) {
+    return icon && icon.startsWith("data:") ? `<img src="${icon}" alt="">` : escapeHtml(icon || "📁");
+  }
+
+  async function openMoveToFolderModal() {
+    const folders = await getFolders();
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.innerHTML = `
+        <div class="modal">
+          <h2>${t("move_to_folder_title")}</h2>
+          <div class="folder-picker-list">
+            <button class="folder-pick" data-folder="">${folderIconHtml("📂")} ${escapeHtml(t("no_folder"))}</button>
+            ${folders.map((f) => `<button class="folder-pick" data-folder="${escapeHtml(f.name)}">${folderIconHtml(f.icon)} ${escapeHtml(f.name)}</button>`).join("")}
+          </div>
+          <div class="modal-actions">
+            <input id="newFolderInline" placeholder="${escapeHtml(t("new_folder_name_placeholder"))}">
+            <button id="createAndMove" class="primary">${t("modal_create")}</button>
+          </div>
+          <div class="modal-actions"><span class="spacer"></span><button id="moveCancel">${t("modal_cancel")}</button></div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const close = (v) => { overlay.remove(); resolve(v); };
+      overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
+      overlay.querySelector("#moveCancel").addEventListener("click", () => close(null));
+      overlay.querySelectorAll(".folder-pick").forEach((btn) => {
+        btn.addEventListener("click", () => close({ folder: btn.dataset.folder, isNew: false }));
+      });
+      const nameInput = overlay.querySelector("#newFolderInline");
+      const createAndMove = () => {
+        const name = nameInput.value.trim();
+        if (name) close({ folder: name, isNew: true });
+      };
+      overlay.querySelector("#createAndMove").addEventListener("click", createAndMove);
+      nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") createAndMove(); });
+    });
+  }
+
+  document.getElementById("moveBtn").addEventListener("click", async () => {
+    const result = await openMoveToFolderModal();
+    if (!result) return;
+    if (result.isNew) {
+      const folders = await getFolders();
+      if (!folders.some((f) => f.name === result.folder)) {
+        folders.push({ name: result.folder, icon: "📁" });
+        await chrome.storage.local.set({ [FOLDERS_KEY]: folders });
+      }
+    }
+    await assignFolder(result.folder);
+    showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
   });
 
   // ------------------------------------------------------------ çeviri (cihaz üzerinde)

@@ -14,7 +14,11 @@ const ARCHIVE_INDEX_KEY = "skimcastArchiveIndex";
 const FOLDERS_KEY = "skimcastFolders";
 const NO_FOLDER = ""; // klasörsüz
 const DEFAULT_ICON = "📁";
-const ICON_CHOICES = ["📁", "🤖", "🧠", "📚", "🎬", "🎙️", "💼", "🎓", "🎮", "🌍", "❤️", "⭐", "🎨", "🧪"];
+const ICON_CHOICES = [
+  "📁", "📂", "🗂️", "🤖", "🧠", "💡", "📚", "📖", "✏️", "🎬", "🎙️", "🎧", "📷",
+  "💼", "💰", "📈", "🎓", "🔬", "🧪", "⚗️", "🩺", "⚖️", "🏛️", "🌍", "🗺️", "✈️",
+  "🎮", "⚽", "🏋️", "🍳", "🎨", "🎵", "🎭", "❤️", "⭐", "🔥", "🚀", "🌱", "🐾",
+];
 
 async function getIndex() {
   const { [ARCHIVE_INDEX_KEY]: index = [] } = await chrome.storage.local.get(ARCHIVE_INDEX_KEY);
@@ -149,7 +153,7 @@ function folderSelectHtml(e, folders) {
 function entryRowHtml(e, folders) {
   const metaLine = [e.method, e.duration].filter(Boolean).join(" · ");
   return `
-    <div class="row" data-id="${escapeHtml(e.id)}">
+    <div class="row${e.pinned ? " pinned-row" : ""}" data-id="${escapeHtml(e.id)}">
       <div class="row-main">
         <a class="title" href="viewer.html?id=${encodeURIComponent(e.id)}">${escapeHtml(e.title || "(başlıksız)")}</a>
         <div class="row-meta">${escapeHtml(metaLine)} · ${escapeHtml(relativeDate(e.ts))}</div>

@@ -24,7 +24,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 #app { max-width: 700px; margin: 0 auto; padding: 48px 24px 100px; }
-.header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 28px; }
+.header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
 .back { display: inline-block; margin-bottom: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; }
 .back:hover { color: var(--accent); }
 .theme-btn {
@@ -37,11 +37,11 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 
 .search-input {
   width: 100%; padding: 11px 14px; border: none; border-radius: 12px; font-size: 15px;
-  background: var(--bg-subtle); color: var(--text); margin-bottom: 28px;
+  background: var(--bg-subtle); color: var(--text); margin-bottom: 20px;
 }
 .search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.folders-section { margin-bottom: 28px; }
+.folders-section { margin-bottom: 20px; }
 .folder-grid { display: flex; flex-wrap: wrap; gap: 10px; }
 .folder-card {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
@@ -69,7 +69,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 }
 .folder-edit-btn:hover { color: var(--accent); }
 
-.controls-row { display: flex; gap: 8px; margin-bottom: 16px; }
+.controls-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .controls-row select {
   padding: 9px 12px; border: none; border-radius: 10px; font-size: 13px;
   background: var(--bg-subtle); color: var(--text); flex: 1;
@@ -103,7 +103,10 @@ button:hover { filter: brightness(.96); }
 .row-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; align-items: flex-end; }
 .row-actions button { font-size: 12px; padding: 5px 8px; background: none; color: var(--text-muted); }
 .row-actions button:hover { color: var(--text); background: var(--bg-subtle); }
-.row-actions .pin.pinned { color: var(--accent); }
+/* Emoji CSS `color`'a uymuyor — sabitlenmişi görünür kılmak için opaklık + arka plan dairesi kullanıyoruz. */
+.row-actions .pin { opacity: .4; border-radius: 50%; width: 26px; height: 26px; padding: 0; text-align: center; }
+.row-actions .pin.pinned { opacity: 1; background: var(--accent-soft); }
+.row.pinned-row { border-color: var(--accent); }
 .row-actions .delete:hover { color: #d70015; }
 
 .fav-row .snippet { color: var(--text); font-size: 14px; }
