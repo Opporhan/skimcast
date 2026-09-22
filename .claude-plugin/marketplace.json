@@ -1,0 +1,14 @@
+{
+  "name": "skimcast",
+  "owner": {
+    "name": "Opporhan"
+  },
+  "plugins": [
+    {
+      "name": "skimcast",
+      "source": "./",
+      "description": "Herhangi bir video, podcast veya makale linkinden transcript çıkarıp zaman damgalı, kaliteli özet yazar. Ücretsiz."
+    }
+  ],
+  "description": "Video, podcast ve makale linklerinden transcript çıkarıp özetleyen Claude Code plugin'i."
+}

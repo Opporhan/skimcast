@@ -1,0 +1,12 @@
+{
+  "name": "skimcast",
+  "description": "Herhangi bir video, podcast veya makale linkinden transcript çıkarıp zaman damgalı, kaliteli özet yazar. Ücretsiz: ek API anahtarı gerekmez.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Opporhan"
+  },
+  "homepage": "https://github.com/Opporhan/skimcast",
+  "repository": "https://github.com/Opporhan/skimcast",
+  "license": "MIT",
+  "keywords": ["youtube", "podcast", "transcript", "summarize", "whisper", "yt-dlp"]
+}

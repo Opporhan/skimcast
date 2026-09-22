@@ -1,0 +1,5 @@
+youtube-transcript-api>=1.0
+yt-dlp>=2024.8
+trafilatura>=1.12
+# Altyazısı/transcript'i olmayan içerik için yedek yol (isteğe bağlı, ağır):
+# faster-whisper>=1.0
