@@ -250,7 +250,7 @@ async function callGeminiOnce(apiKey, prompt) {
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 8192 } }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 3072 } }),
     });
   } catch (e) {
     throw new SkimError(`Gemini'ye bağlanılamadı: ${e.message}`);
@@ -269,15 +269,17 @@ async function callGeminiOnce(apiKey, prompt) {
   return text.trim();
 }
 
-// Ücretsiz katmanın dakikalık hız sınırı (429) çok kısa süreli oluyor (Google genelde <1 sn bekle diyor);
-// kullanıcıya çiğ hata göstermeden birkaç kez, artan gecikmeyle tekrar dene.
+// Geçici hatalar: 429 (dakikalık hız sınırı) ve 503 (Google tarafında yoğunluk) — ikisi de kısa süre
+// sonra kendiliğinden düzeliyor. Kullanıcıya çiğ hata göstermeden birkaç kez, artan gecikmeyle tekrar dene.
+const RETRYABLE_STATUS = new Set([429, 503]);
+
 async function callGemini(apiKey, prompt) {
   const delays = [1000, 3000, 8000];
   for (let i = 0; ; i++) {
     try {
       return await callGeminiOnce(apiKey, prompt);
     } catch (e) {
-      if (e.status !== 429 || i >= delays.length) {
+      if (!RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
         if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
         throw e;
       }
