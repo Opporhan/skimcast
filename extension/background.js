@@ -355,19 +355,39 @@ async function callGroq(apiKey, prompt, maxTokens = 4096) {
   throw lastErr;
 }
 
+// Onlarca ara istekten biri (kısa/tekdüze bir bölüm, ya da modelin geçici bir tuhaflığı) boş dönebilir.
+// Bu tek bir parça için normal; tüm uzun video özetini iptal etmesin — o notu boş bırakıp devam et.
+async function noteForChunk(apiKey, chunk, index, total) {
+  try {
+    return await callGroq(apiKey, chunkPrompt(chunk, index, total), 700);
+  } catch {
+    return ""; // bu parçadan not çıkmadı, devam
+  }
+}
+
 async function notesForChunks(apiKey, chunks) {
   const notes = [];
-  for (let i = 0; i < chunks.length; i++) {
-    notes.push(await callGroq(apiKey, chunkPrompt(chunks[i], i, chunks.length), 700));
+  for (let i = 0; i < chunks.length; i++) notes.push(await noteForChunk(apiKey, chunks[i], i, chunks.length));
+  return notes.filter((n) => n.trim());
+}
+
+// Son özet adımı (asıl kullanıcıya gidecek metin) boş dönerse, bu tek bir bölümün notu gibi görmezden
+// gelinemez; bir kez daha dener, hâlâ olmazsa hatayı gösterir.
+async function finalSummary(apiKey, meta, text, langName) {
+  try {
+    return await callGroq(apiKey, buildPrompt(meta, text, langName));
+  } catch (e) {
+    if (e.message && e.message.includes("boş yanıt")) return await callGroq(apiKey, buildPrompt(meta, text, langName));
+    throw e;
   }
-  return notes;
 }
 
 // Notların birleşimi de tek istekte hâlâ çok büyükse (çok uzun video, çok sayıda parça), notları da
 // tekrar parçalayıp bir kademe daha özetler — ağaç gibi küçülerek limitin altına inene kadar devam eder.
 async function reduceNotes(apiKey, meta, notes, langName) {
   const combined = notes.join("\n\n");
-  if (combined.length <= CHUNK_CHARS) return callGroq(apiKey, buildPrompt(meta, combined, langName), 2048);
+  if (!combined.trim()) throw new SkimError("Hiçbir bölümden not çıkarılamadı.");
+  if (combined.length <= CHUNK_CHARS) return finalSummary(apiKey, meta, combined, langName);
   const nextNotes = await notesForChunks(apiKey, splitIntoChunks(combined));
   return reduceNotes(apiKey, meta, nextNotes, langName);
 }
@@ -376,7 +396,7 @@ async function reduceNotes(apiKey, meta, notes, langName) {
 // özetler, sonra bu notları (gerekirse birden çok kademede) birleştirip son bir istekte asıl özeti yazdırır.
 async function summarizeLong(apiKey, meta, text, langName) {
   const chunks = splitIntoChunks(text);
-  if (chunks.length === 1) return callGroq(apiKey, buildPrompt(meta, text, langName));
+  if (chunks.length === 1) return finalSummary(apiKey, meta, text, langName);
   const notes = await notesForChunks(apiKey, chunks);
   return reduceNotes(apiKey, meta, notes, langName);
 }
