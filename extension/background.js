@@ -306,29 +306,23 @@ async function streamGeminiOnce(apiKey, prompt, maxOutputTokens, onChunk) {
 
 // Geçici hatalar: 429 (dakikalık hız sınırı) ve 503 (Google tarafında yoğunluk) — ikisi de kısa süre
 // sonra kendiliğinden düzeliyor. Yalnızca hiç parça almadan başarısız olursa (kısmi metni çöpe atmamak
-// için) yeniden dener.
+// için) yeniden dener. Tek üretim, tek token bütçesi: iki kez baştan üretmek (bir öncekinin hatası)
+// süreyi ikiye katlıyordu ve metni tekrarlıyordu — kesilme nadir ve kabul edilebilir bir risk.
 const RETRYABLE_STATUS = new Set([429, 503]);
 
 async function streamGemini(apiKey, prompt, onChunk) {
   const delays = [1000, 3000, 8000];
-  // Uzun/yoğun içerikte özet token limitine takılıp yarım kesilebilir; kesilirse daha yüksek bir
-  // limitle bir kez daha dene (özetin tam bitmesi hızdan daha önemli).
-  const tokenBudgets = [8192, 16000];
-  for (const maxOutputTokens of tokenBudgets) {
-    for (let i = 0; ; i++) {
-      let receivedAny = false;
-      try {
-        const { text, truncated } = await streamGeminiOnce(apiKey, prompt, maxOutputTokens, (d) => { receivedAny = true; onChunk(d); });
-        if (!truncated) return text;
-        if (maxOutputTokens === tokenBudgets[tokenBudgets.length - 1]) return text; // elimizdeki en iyisi bu
-        break; // bir üst token bütçesiyle tekrar dene
-      } catch (e) {
-        if (receivedAny || !RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
-          if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
-          throw e;
-        }
-        await new Promise((r) => setTimeout(r, delays[i]));
+  for (let i = 0; ; i++) {
+    let receivedAny = false;
+    try {
+      const { text } = await streamGeminiOnce(apiKey, prompt, 8192, (d) => { receivedAny = true; onChunk(d); });
+      return text;
+    } catch (e) {
+      if (receivedAny || !RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
+        if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
+        throw e;
       }
+      await new Promise((r) => setTimeout(r, delays[i]));
     }
   }
 }
