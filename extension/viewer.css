@@ -32,6 +32,7 @@ body {
 #app { max-width: 740px; margin: 0 auto; padding: 48px 24px 90px; }
 header { margin-bottom: 24px; }
 .header-top { display: flex; align-items: center; justify-content: space-between; }
+.header-btns { display: flex; gap: 6px; }
 .back { display: inline-block; margin-bottom: 10px; color: var(--text-muted); text-decoration: none; font-size: 13px; }
 .back:hover { color: var(--accent); }
 .theme-btn {
@@ -39,8 +40,14 @@ header { margin-bottom: 24px; }
   font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .theme-btn:hover { filter: brightness(.95); }
+#langBtn {
+  border: none; border-radius: 16px; width: auto; height: 32px; padding: 0 12px; background: var(--bg-subtle);
+  color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#langBtn:hover { filter: brightness(.95); }
 h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em; }
 .meta { color: var(--text-muted); font-size: 13px; }
+.star-ico { color: #f5b400; } /* ★ CSS color'a uyuyor (emoji değil), bu yüzden gerçekten sarı boyanabiliyor */
 
 /* Sadece arama satırı sabit (sticky) kalıyor; aksiyon düğmeleri ve çeviri satırı normal akışta — birden
    fazla sticky satırı üst üste bindirmek konumlandırmayı kırılgan yapıyordu. */
@@ -57,7 +64,8 @@ h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em;
 .hint { color: var(--text-muted); font-size: 13px; }
 .translate-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
 .translate-bar select {
-  padding: 9px 11px; border: none; border-radius: 10px; font-size: 13px;
+  /* Sağdaki varsayılan ok neredeyse kenara yapışıyordu; sağ boşluğu artırdık. */
+  padding: 9px 28px 9px 11px; border: none; border-radius: 10px; font-size: 13px;
   background: var(--bg-subtle); color: var(--text);
 }
 #translateStatus { color: var(--accent); }

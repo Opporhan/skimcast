@@ -2,8 +2,6 @@
 // artık (bkz. proje kararı: LLM özetleme terk edildi) — background.js transcript'i alıp arşive kaydeder
 // ve görüntüleyici sekmesini kendisi açar.
 
-function t(key) { return chrome.i18n.getMessage(key) || key; }
-
 function applyI18n() {
   document.title = t("ext_name");
   document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
@@ -33,8 +31,10 @@ async function run() {
 }
 
 async function init() {
+  await initLang();
   applyI18n();
   mountThemeButton(document.getElementById("themeBtn"));
+  mountLangButton(document.getElementById("langBtn"));
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.url && /^https?:\/\//.test(tab.url)) document.getElementById("url").value = tab.url;

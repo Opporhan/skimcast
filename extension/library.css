@@ -25,6 +25,7 @@ body {
 }
 #app { max-width: 700px; margin: 0 auto; padding: 48px 24px 100px; }
 .header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.header-btns { display: flex; gap: 6px; }
 .back { display: inline-block; margin-bottom: 6px; color: var(--text-muted); text-decoration: none; font-size: 13px; }
 .back:hover { color: var(--accent); }
 .theme-btn {
@@ -32,6 +33,12 @@ body {
   font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .theme-btn:hover { filter: brightness(.95); }
+#langBtn {
+  border: none; border-radius: 16px; width: auto; height: 32px; padding: 0 12px; background: var(--bg-subtle);
+  color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#langBtn:hover { filter: brightness(.95); }
+.star-ico { color: #f5b400; }
 h1 { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
 h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
 
@@ -71,7 +78,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 
 .controls-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .controls-row select {
-  padding: 9px 12px; border: none; border-radius: 10px; font-size: 13px;
+  padding: 9px 28px 9px 12px; border: none; border-radius: 10px; font-size: 13px;
   background: var(--bg-subtle); color: var(--text); flex: 1;
 }
 button {
@@ -95,8 +102,8 @@ button:hover { filter: brightness(.96); }
 .row .snippet { margin-top: 6px; font-size: 13px; color: var(--text-muted); }
 .row .snippet mark { background: var(--mark); border-radius: 2px; color: var(--text); }
 
-.folder-select, .fav-folder-select {
-  margin-top: 10px; font-size: 12px; padding: 5px 9px; border: none;
+.folder-select {
+  margin-top: 10px; font-size: 12px; padding: 5px 22px 5px 9px; border: none;
   border-radius: 7px; background: var(--bg-subtle); color: var(--text-muted);
 }
 
@@ -104,9 +111,6 @@ button:hover { filter: brightness(.96); }
   width: 100%; margin-top: 6px; padding: 8px 10px; border: none; border-radius: 8px;
   background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 13px; resize: vertical; min-height: 60px;
 }
-.edit-actions { display: flex; gap: 6px; margin-top: 6px; }
-.edit-actions button { font-size: 12px; padding: 5px 10px; background: var(--bg-subtle); color: var(--text); }
-.edit-actions .save-fav { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 .row-actions { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; align-items: flex-end; }
 .row-actions button { font-size: 12px; padding: 5px 8px; background: none; color: var(--text-muted); }
@@ -118,6 +122,8 @@ button:hover { filter: brightness(.96); }
 .row-actions .delete:hover { color: #d70015; }
 
 .fav-row .snippet { color: var(--text); font-size: 14px; }
+.mini-tag { font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 1px 7px; }
+.row-actions .move-fav, .row-actions .edit-fav { font-size: 14px; }
 
 /* ------------------------------------------------------------ modal (klasör oluştur/düzenle) */
 .modal-overlay {

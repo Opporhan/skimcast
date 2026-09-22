@@ -2,8 +2,6 @@
 // zaman damgalı transcript'i arama, tıkla-git, olası reklam tespiti, favori/alıntı, kopyala/indir ve
 // (cihaz üzerinde, ücretsiz/kotasız) çeviri katmanlarıyla sunar. Çeviri hariç hiçbir dış API'ye gitmez.
 
-function t(key) { return chrome.i18n.getMessage(key) || key; }
-
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -75,6 +73,7 @@ async function detectSourceLanguage(sampleText) {
 }
 
 async function init() {
+  await initLang();
   const app = document.getElementById("app");
   const id = new URLSearchParams(location.search).get("id");
   if (!id) { app.innerHTML = `<p class="error">${t("error_no_result")}</p>`; return; }
@@ -95,7 +94,10 @@ async function init() {
     <header>
       <div class="header-top">
         <a class="back" href="library.html">${t("library_link")}</a>
-        <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
+        <div class="header-btns">
+          <button id="langBtn" class="theme-btn" title="Language"></button>
+          <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
+        </div>
       </div>
       <h1>${escapeHtml(meta.title || t("popup_title"))}</h1>
       <div class="meta">${escapeHtml(metaLine)}</div>
@@ -104,7 +106,7 @@ async function init() {
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
     </div>
     <div class="action-row">
-      <button id="favOnlyBtn" class="toggle-btn">${t("fav_only_btn")}</button>
+      <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">★</span> ${t("fav_only_btn")}</button>
       <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
       <button id="moveBtn">${t("move_to_folder_btn")}</button>
       <button id="copyBtn">${t("copy_btn")}</button>
@@ -123,6 +125,7 @@ async function init() {
   `;
 
   mountThemeButton(document.getElementById("themeBtn"));
+  mountLangButton(document.getElementById("langBtn"));
 
   const toastEl = document.getElementById("toast");
   let toastTimer = null;

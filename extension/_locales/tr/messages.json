@@ -1,74 +1,218 @@
 {
-  "ext_name": { "message": "skimcast" },
-  "ext_description": { "message": "Linki yapıştır, zaman damgalı transcript'i al — arayabilir, tıkla-git yapabilir, reklamları atlayabilirsin. YouTube, podcast, makale. Tamamen yerel, hiçbir API'ye gitmez." },
-  "popup_title": { "message": "skimcast" },
-  "url_label": { "message": "Link" },
-  "url_placeholder": { "message": "YouTube, podcast RSS, Apple Podcasts, makale…" },
-  "fetch_btn": { "message": "Transcript'i Getir" },
-  "status_fetching": { "message": "Transcript alınıyor…" },
-  "status_done": { "message": "Görüntüleyici sekmesinde açıldı." },
-  "error_prefix": { "message": "Hata:" },
-  "error_no_url": { "message": "Önce bir link gir." },
-  "error_no_result": { "message": "URL'de kayıt kimliği yok." },
-  "error_result_not_found": { "message": "Bu kayıt bulunamadı (silinmiş ya da uzantı yeniden yüklenmiş olabilir)." },
-  "library_btn": { "message": "Kütüphane" },
-  "library_link": { "message": "← Kütüphane" },
-  "library_title": { "message": "Kütüphane" },
-  "library_search_placeholder": { "message": "Tüm arşivde ara…" },
-  "library_empty": { "message": "Bu klasörde bir şey yok." },
-  "library_delete": { "message": "Sil" },
-  "pin_hint": { "message": "Sabitle/Kaldır" },
-  "sort_newest": { "message": "En Yeni" },
-  "sort_oldest": { "message": "En Eski" },
-  "sort_title": { "message": "Başlığa Göre" },
-  "folders_section_title": { "message": "Dosyalarım" },
-  "all_folders": { "message": "Tümü" },
-  "no_folder": { "message": "Genel" },
-  "new_folder_option": { "message": "Yeni Klasör…" },
-  "new_folder_title": { "message": "Yeni Klasör" },
-  "edit_folder_title": { "message": "Klasörü Düzenle" },
-  "edit_folder_hint": { "message": "Düzenle" },
-  "new_folder_name_placeholder": { "message": "Klasör adı" },
-  "upload_image_hint": { "message": "Kendi görselini yükle" },
-  "modal_cancel": { "message": "Vazgeç" },
-  "modal_create": { "message": "Oluştur" },
-  "modal_save": { "message": "Kaydet" },
-  "modal_delete": { "message": "Sil" },
-  "delete_folder_confirm": { "message": "Bu klasörü sil? İçindeki videolar silinmez, sadece \"Genel\"e taşınır." },
-  "fav_view_btn": { "message": "★ Favoriler" },
-  "no_favorites": { "message": "Henüz favori işaretlenmiş bir an yok. Bir video açıp satırların yanındaki ☆ ikonuna tıkla." },
-  "remove_fav_btn": { "message": "Kaldır" },
-  "search_placeholder": { "message": "Bu transcript'te ara…" },
-  "copy_btn": { "message": "Transcript'i Kopyala" },
-  "copied": { "message": "Kopyalandı!" },
-  "download_btn": { "message": "İndir" },
-  "download_as_txt": { "message": "Metin olarak (.txt)" },
-  "download_as_pdf": { "message": "PDF olarak" },
-  "ad_badge": { "message": "olası reklam" },
-  "ad_skip": { "message": "Atla →" },
-  "no_matches": { "message": "Eşleşme yok." },
-  "theme_btn": { "message": "Açık/Koyu Tema" },
-  "fav_only_btn": { "message": "★ Sadece Favoriler" },
-  "fav_hint": { "message": "Favorilere ekle/çıkar" },
-  "time_toggle_btn": { "message": "🕐 Zaman Damgaları" },
-  "move_to_folder_btn": { "message": "📁 Dosyaya Taşı" },
-  "move_to_folder_title": { "message": "Dosyaya Taşı" },
-  "moved_to_folder_toast": { "message": "Taşındı:" },
-  "removed_from_folder_toast": { "message": "Dosyadan çıkarıldı" },
-  "download_include_times": { "message": "Zaman damgalarını dahil et" },
-  "fav_added": { "message": "Favorilere eklendi ★" },
-  "fav_added_copied": { "message": "Favorilere eklendi ve kopyalandı ★" },
-  "fav_removed": { "message": "Favorilerden çıkarıldı" },
-  "translate_btn": { "message": "Çevir" },
-  "translate_original_btn": { "message": "Orijinali Göster" },
-  "translate_preparing": { "message": "Hazırlanıyor…" },
-  "translate_downloading": { "message": "Dil paketi indiriliyor…" },
-  "translate_progress": { "message": "Çevriliyor…" },
-  "translate_done": { "message": "Çevrildi." },
-  "translate_error": { "message": "Çeviri hatası:" },
-  "translate_no_source": { "message": "Kaynak dil tespit edilemedi, çeviri kullanılamıyor." },
-  "date_today": { "message": "bugün" },
-  "date_yesterday": { "message": "dün" },
-  "date_days_ago": { "message": "gün önce" },
-  "footer_note": { "message": "YouTube, transcript etiketi olan podcast RSS/Apple Podcasts akışları ve makale sayfaları için çalışır. Hiçbir API anahtarı gerekmez, hiçbir yere veri gönderilmez — her şey bu tarayıcıda kalır." }
+  "ext_name": {
+    "message": "skimcast"
+  },
+  "ext_description": {
+    "message": "Linki yapıştır, zaman damgalı transcript'i al — arayabilir, tıkla-git yapabilir, reklamları atlayabilirsin. YouTube, podcast, makale. Tamamen yerel, hiçbir API'ye gitmez."
+  },
+  "popup_title": {
+    "message": "skimcast"
+  },
+  "url_label": {
+    "message": "Link"
+  },
+  "url_placeholder": {
+    "message": "YouTube, podcast RSS, Apple Podcasts, makale…"
+  },
+  "fetch_btn": {
+    "message": "Transcript'i Getir"
+  },
+  "status_fetching": {
+    "message": "Transcript alınıyor…"
+  },
+  "status_done": {
+    "message": "Görüntüleyici sekmesinde açıldı."
+  },
+  "error_prefix": {
+    "message": "Hata:"
+  },
+  "error_no_url": {
+    "message": "Önce bir link gir."
+  },
+  "error_no_result": {
+    "message": "URL'de kayıt kimliği yok."
+  },
+  "error_result_not_found": {
+    "message": "Bu kayıt bulunamadı (silinmiş ya da uzantı yeniden yüklenmiş olabilir)."
+  },
+  "library_btn": {
+    "message": "Kütüphane"
+  },
+  "library_link": {
+    "message": "← Kütüphane"
+  },
+  "library_title": {
+    "message": "Kütüphane"
+  },
+  "library_search_placeholder": {
+    "message": "Tüm arşivde ara…"
+  },
+  "library_empty": {
+    "message": "Bu klasörde bir şey yok."
+  },
+  "library_delete": {
+    "message": "Sil"
+  },
+  "pin_hint": {
+    "message": "Sabitle/Kaldır"
+  },
+  "sort_newest": {
+    "message": "En Yeni"
+  },
+  "sort_oldest": {
+    "message": "En Eski"
+  },
+  "sort_title": {
+    "message": "Başlığa Göre"
+  },
+  "folders_section_title": {
+    "message": "Dosyalarım"
+  },
+  "all_folders": {
+    "message": "Tümü"
+  },
+  "no_folder": {
+    "message": "Genel"
+  },
+  "new_folder_option": {
+    "message": "Yeni Klasör…"
+  },
+  "new_folder_title": {
+    "message": "Yeni Klasör"
+  },
+  "edit_folder_title": {
+    "message": "Klasörü Düzenle"
+  },
+  "edit_folder_hint": {
+    "message": "Düzenle"
+  },
+  "new_folder_name_placeholder": {
+    "message": "Klasör adı"
+  },
+  "upload_image_hint": {
+    "message": "Kendi görselini yükle"
+  },
+  "modal_cancel": {
+    "message": "Vazgeç"
+  },
+  "modal_create": {
+    "message": "Oluştur"
+  },
+  "modal_save": {
+    "message": "Kaydet"
+  },
+  "modal_delete": {
+    "message": "Sil"
+  },
+  "delete_folder_confirm": {
+    "message": "Bu klasörü sil? İçindeki videolar silinmez, sadece \"Genel\"e taşınır."
+  },
+  "fav_view_btn": {
+    "message": "Favoriler"
+  },
+  "no_favorites": {
+    "message": "Henüz favori işaretlenmiş bir an yok. Bir video açıp satırların yanındaki ☆ ikonuna tıkla."
+  },
+  "remove_fav_btn": {
+    "message": "Kaldır"
+  },
+  "search_placeholder": {
+    "message": "Bu transcript'te ara…"
+  },
+  "copy_btn": {
+    "message": "📋 Transcript'i Kopyala"
+  },
+  "copied": {
+    "message": "Kopyalandı!"
+  },
+  "download_btn": {
+    "message": "⬇️ İndir"
+  },
+  "download_as_txt": {
+    "message": "Metin olarak (.txt)"
+  },
+  "download_as_pdf": {
+    "message": "PDF olarak"
+  },
+  "ad_badge": {
+    "message": "olası reklam"
+  },
+  "ad_skip": {
+    "message": "Atla →"
+  },
+  "no_matches": {
+    "message": "Eşleşme yok."
+  },
+  "theme_btn": {
+    "message": "Açık/Koyu Tema"
+  },
+  "fav_only_btn": {
+    "message": "Sadece Favoriler"
+  },
+  "fav_hint": {
+    "message": "Favorilere ekle/çıkar"
+  },
+  "time_toggle_btn": {
+    "message": "🕐 Zaman Damgaları"
+  },
+  "move_to_folder_btn": {
+    "message": "📁 Dosyaya Taşı"
+  },
+  "move_to_folder_title": {
+    "message": "Dosyaya Taşı"
+  },
+  "moved_to_folder_toast": {
+    "message": "Taşındı:"
+  },
+  "removed_from_folder_toast": {
+    "message": "Dosyadan çıkarıldı"
+  },
+  "download_include_times": {
+    "message": "Zaman damgalarını dahil et"
+  },
+  "fav_added": {
+    "message": "Favorilere eklendi ★"
+  },
+  "fav_added_copied": {
+    "message": "Favorilere eklendi ve kopyalandı ★"
+  },
+  "fav_removed": {
+    "message": "Favorilerden çıkarıldı"
+  },
+  "translate_btn": {
+    "message": "Çevir"
+  },
+  "translate_original_btn": {
+    "message": "Orijinali Göster"
+  },
+  "translate_preparing": {
+    "message": "Hazırlanıyor…"
+  },
+  "translate_downloading": {
+    "message": "Dil paketi indiriliyor…"
+  },
+  "translate_progress": {
+    "message": "Çevriliyor…"
+  },
+  "translate_done": {
+    "message": "Çevrildi."
+  },
+  "translate_error": {
+    "message": "Çeviri hatası:"
+  },
+  "translate_no_source": {
+    "message": "Kaynak dil tespit edilemedi, çeviri kullanılamıyor."
+  },
+  "date_today": {
+    "message": "bugün"
+  },
+  "date_yesterday": {
+    "message": "dün"
+  },
+  "date_days_ago": {
+    "message": "gün önce"
+  },
+  "footer_note": {
+    "message": "YouTube, transcript etiketi olan podcast RSS/Apple Podcasts akışları ve makale sayfaları için çalışır. Hiçbir API anahtarı gerekmez, hiçbir yere veri gönderilmez — her şey bu tarayıcıda kalır."
+  }
 }

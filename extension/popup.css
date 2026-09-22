@@ -29,6 +29,11 @@ h1 { font-size: 15px; font-weight: 700; margin: 0; flex: 1; letter-spacing: -.01
   font-size: 12px; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .theme-btn:hover { filter: brightness(.95); }
+#langBtn {
+  border: none; border-radius: 14px; width: auto; height: 26px; padding: 0 10px; background: var(--bg-subtle);
+  color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer;
+}
+#langBtn:hover { filter: brightness(.95); }
 label { display: block; margin-bottom: 5px; font-weight: 600; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .03em; }
 input, select {
   width: 100%; padding: 9px 11px;

@@ -3,8 +3,6 @@
 // adlandırma, silme), sabitleme, sıralama ve tüm videolardaki favori (yıldızlanmış) anların tek bir
 // yerde toplandığı "Favoriler" görünümü.
 
-function t(key) { return chrome.i18n.getMessage(key) || key; }
-
 function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
@@ -207,21 +205,77 @@ async function getAllHighlights(index) {
   return all.sort((a, b) => b.ts - a.ts);
 }
 
-function highlightRowHtml(h, folders) {
-  const options = [`<option value=""${!h.folder ? " selected" : ""}>${escapeHtml(t("no_folder"))}</option>`,
-    ...folders.map((f) => `<option value="${escapeHtml(f.name)}"${f.name === h.folder ? " selected" : ""}>${escapeHtml(f.name)}</option>`)];
+function highlightRowHtml(h) {
+  const folderTag = h.folder ? `<span class="mini-tag">${escapeHtml(h.folder)}</span>` : "";
   return `
     <div class="row fav-row">
       <div class="row-main">
         <a class="title" href="viewer.html?id=${encodeURIComponent(h.videoId)}">${escapeHtml(h.videoTitle || "(başlıksız)")}</a>
-        <div class="snippet">"${escapeHtml(h.text)}"</div>
-        <select class="fav-folder-select" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}">${options.join("")}</select>
+        <div class="snippet">"${escapeHtml(h.text)}" ${folderTag}</div>
       </div>
       <div class="row-actions">
+        <button class="move-fav" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}" title="${escapeHtml(t("move_to_folder_title"))}">📁</button>
         <button class="edit-fav" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>
         <button class="unstar" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}">${t("remove_fav_btn")}</button>
       </div>
     </div>`;
+}
+
+// Favoriyi (yıldızlanmış an) metnini düzenlemek için: yeni bir sayfa değil, ortalanmış küçük bir panel
+// (aynı modal deseni). "Panel çok karışık olmasın" isteğine göre tek bir metin alanı + iki düğme.
+function openEditFavModal(currentText) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal">
+        <h2>${t("edit_folder_hint")}</h2>
+        <textarea id="editFavText" class="snippet-edit">${escapeHtml(currentText)}</textarea>
+        <div class="modal-actions"><span class="spacer"></span><button id="editCancel">${t("modal_cancel")}</button><button id="editSave" class="primary">${t("modal_save")}</button></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const textarea = overlay.querySelector("#editFavText");
+    requestAnimationFrame(() => { textarea.focus(); textarea.selectionStart = textarea.value.length; });
+    const close = (v) => { overlay.remove(); resolve(v); };
+    overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
+    overlay.querySelector("#editCancel").addEventListener("click", () => close(null));
+    overlay.querySelector("#editSave").addEventListener("click", () => close(textarea.value.trim() || null));
+  });
+}
+
+// Bir favoriyi bir klasöre taşımak için: var olanlardan seç ya da yeni oluşturup direkt oraya taşı.
+function openMoveFavModal(folders) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal">
+        <h2>${t("move_to_folder_title")}</h2>
+        <div class="folder-picker-list">
+          <button class="folder-pick" data-folder="">📂 ${escapeHtml(t("no_folder"))}</button>
+          ${folders.map((f) => `<button class="folder-pick" data-folder="${escapeHtml(f.name)}">${iconHtml(f.icon)} ${escapeHtml(f.name)}</button>`).join("")}
+        </div>
+        <div class="modal-actions">
+          <input id="newFolderInline" placeholder="${escapeHtml(t("new_folder_name_placeholder"))}">
+          <button id="createAndMove" class="primary">${t("modal_create")}</button>
+        </div>
+        <div class="modal-actions"><span class="spacer"></span><button id="moveCancel">${t("modal_cancel")}</button></div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = (v) => { overlay.remove(); resolve(v); };
+    overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
+    overlay.querySelector("#moveCancel").addEventListener("click", () => close(null));
+    overlay.querySelectorAll(".folder-pick").forEach((btn) => {
+      btn.addEventListener("click", () => close({ folder: btn.dataset.folder, isNew: false }));
+    });
+    const nameInput = overlay.querySelector("#newFolderInline");
+    const createAndMove = () => {
+      const name = nameInput.value.trim();
+      if (name) close({ folder: name, isNew: true });
+    };
+    overlay.querySelector("#createAndMove").addEventListener("click", createAndMove);
+    nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") createAndMove(); });
+  });
 }
 
 // Bir favoriyi (yıldızlanmış an) günceller — o anın ait olduğu videonun tam kaydı içinde saklı,
@@ -235,6 +289,7 @@ async function updateHighlight(videoId, hKey, patch) {
 }
 
 async function init() {
+  await initLang();
   const app = document.getElementById("app");
   app.innerHTML = `
     <header class="header-top">
@@ -242,7 +297,10 @@ async function init() {
         <a class="back" href="popup.html">${t("popup_title")}</a>
         <h1>${t("library_title")}</h1>
       </div>
-      <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
+      <div class="header-btns">
+        <button id="langBtn" class="theme-btn" title="Language"></button>
+        <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
+      </div>
     </header>
     <input id="search" class="search-input" type="text" placeholder="${escapeHtml(t("library_search_placeholder"))}">
 
@@ -257,11 +315,12 @@ async function init() {
         <option value="oldest">${t("sort_oldest")}</option>
         <option value="title">${t("sort_title")}</option>
       </select>
-      <button id="favViewBtn" class="toggle-btn">${t("fav_view_btn")}</button>
+      <button id="favViewBtn" class="toggle-btn"><span class="star-ico">★</span> ${t("fav_view_btn")}</button>
     </div>
     <div id="list"></div>
   `;
   mountThemeButton(document.getElementById("themeBtn"));
+  mountLangButton(document.getElementById("langBtn"));
 
   const listEl = document.getElementById("list");
   const foldersEl = document.getElementById("folders");
@@ -319,7 +378,7 @@ async function init() {
   async function renderFavorites() {
     const all = await getAllHighlights(index);
     const filtered = activeFolder === null ? all : all.filter((h) => (h.folder || NO_FOLDER) === activeFolder);
-    listEl.innerHTML = filtered.length ? filtered.map((h) => highlightRowHtml(h, folders)).join("") : `<p class="hint">${t("no_favorites")}</p>`;
+    listEl.innerHTML = filtered.length ? filtered.map(highlightRowHtml).join("") : `<p class="hint">${t("no_favorites")}</p>`;
   }
 
   function render() {
@@ -379,11 +438,6 @@ async function init() {
   });
 
   listEl.addEventListener("change", async (e) => {
-    const favSelect = e.target.closest(".fav-folder-select");
-    if (favSelect) {
-      await updateHighlight(favSelect.dataset.videoId, favSelect.dataset.key, { folder: favSelect.value });
-      return; // odak kaybolmasın diye tüm listeyi yeniden çizmiyoruz; sayı/filtre bir sonraki render'da yansır
-    }
     const select = e.target.closest(".folder-select");
     if (!select) return;
     await updateEntry(select.dataset.id, { folder: select.value });
@@ -418,31 +472,32 @@ async function init() {
       render();
       return;
     }
-    // "Cümleler ile oynama" — favorilenen anın metnini yerinde düzenleme.
+    // "Cümleler ile oynama" — favorilenen anın metnini küçük bir panelde düzenleme.
     const editFav = e.target.closest(".edit-fav");
     if (editFav) {
-      const row = editFav.closest(".row");
-      const snippetEl = row.querySelector(".snippet");
-      const current = snippetEl.textContent.replace(/^"|"$/g, "");
-      const wrap = document.createElement("div");
-      wrap.innerHTML = `<textarea class="snippet-edit">${escapeHtml(current)}</textarea>
-        <div class="edit-actions">
-          <button class="save-fav" data-video-id="${editFav.dataset.videoId}" data-key="${editFav.dataset.key}">${t("modal_save")}</button>
-          <button class="cancel-fav">${t("modal_cancel")}</button>
-        </div>`;
-      snippetEl.replaceWith(...wrap.childNodes);
-      row.querySelector(".snippet-edit").focus();
-      return;
-    }
-    const saveFav = e.target.closest(".save-fav");
-    if (saveFav) {
-      const row = saveFav.closest(".row");
-      const text = row.querySelector(".snippet-edit").value.trim();
-      if (text) await updateHighlight(saveFav.dataset.videoId, saveFav.dataset.key, { text });
+      // DOM'dan metni ayrıştırmak yerine (tırnak içeren cümlelerde kırılgan) depodan taze okuyoruz.
+      const fk = archiveKey(editFav.dataset.videoId);
+      const { [fk]: full } = await chrome.storage.local.get(fk);
+      const h = full?.highlights?.find((x) => x.key === editFav.dataset.key);
+      if (!h) return;
+      const newText = await openEditFavModal(h.text);
+      if (newText) await updateHighlight(editFav.dataset.videoId, editFav.dataset.key, { text: newText });
       render();
       return;
     }
-    if (e.target.closest(".cancel-fav")) { render(); }
+    const moveFav = e.target.closest(".move-fav");
+    if (moveFav) {
+      const result = await openMoveFavModal(folders);
+      if (!result) return;
+      if (result.isNew) {
+        if (!folders.some((f) => f.name === result.folder)) {
+          folders.push({ name: result.folder, icon: "📁" });
+          await saveFolders(folders);
+        }
+      }
+      await updateHighlight(moveFav.dataset.videoId, moveFav.dataset.key, { folder: result.folder });
+      render();
+    }
   });
 }
 

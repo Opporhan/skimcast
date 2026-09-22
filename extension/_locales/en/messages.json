@@ -1,74 +1,218 @@
 {
-  "ext_name": { "message": "skimcast" },
-  "ext_description": { "message": "Paste a link, get a timestamped transcript — searchable, click-to-jump, ad-skip. YouTube, podcasts, articles. Fully local, no API calls." },
-  "popup_title": { "message": "skimcast" },
-  "url_label": { "message": "Link" },
-  "url_placeholder": { "message": "YouTube, podcast RSS, Apple Podcasts, article…" },
-  "fetch_btn": { "message": "Get Transcript" },
-  "status_fetching": { "message": "Fetching transcript…" },
-  "status_done": { "message": "Opened in the viewer tab." },
-  "error_prefix": { "message": "Error:" },
-  "error_no_url": { "message": "Enter a link first." },
-  "error_no_result": { "message": "No entry ID in the URL." },
-  "error_result_not_found": { "message": "This entry was not found (it may have been deleted, or the extension was reloaded)." },
-  "library_btn": { "message": "Library" },
-  "library_link": { "message": "← Library" },
-  "library_title": { "message": "Library" },
-  "library_search_placeholder": { "message": "Search your whole archive…" },
-  "library_empty": { "message": "Nothing here." },
-  "library_delete": { "message": "Delete" },
-  "pin_hint": { "message": "Pin/Unpin" },
-  "sort_newest": { "message": "Newest" },
-  "sort_oldest": { "message": "Oldest" },
-  "sort_title": { "message": "By Title" },
-  "folders_section_title": { "message": "My Files" },
-  "all_folders": { "message": "All" },
-  "no_folder": { "message": "General" },
-  "new_folder_option": { "message": "New Folder…" },
-  "new_folder_title": { "message": "New Folder" },
-  "edit_folder_title": { "message": "Edit Folder" },
-  "edit_folder_hint": { "message": "Edit" },
-  "new_folder_name_placeholder": { "message": "Folder name" },
-  "upload_image_hint": { "message": "Upload your own image" },
-  "modal_cancel": { "message": "Cancel" },
-  "modal_create": { "message": "Create" },
-  "modal_save": { "message": "Save" },
-  "modal_delete": { "message": "Delete" },
-  "delete_folder_confirm": { "message": "Delete this folder? Its videos won't be deleted, just moved to \"General\"." },
-  "fav_view_btn": { "message": "★ Favorites" },
-  "no_favorites": { "message": "No favorite moments yet. Open a video and click the ☆ next to a line." },
-  "remove_fav_btn": { "message": "Remove" },
-  "search_placeholder": { "message": "Search this transcript…" },
-  "copy_btn": { "message": "Copy Transcript" },
-  "copied": { "message": "Copied!" },
-  "download_btn": { "message": "Download" },
-  "download_as_txt": { "message": "As Text (.txt)" },
-  "download_as_pdf": { "message": "As PDF" },
-  "ad_badge": { "message": "possible ad" },
-  "ad_skip": { "message": "Skip →" },
-  "no_matches": { "message": "No matches." },
-  "theme_btn": { "message": "Light/Dark Theme" },
-  "fav_only_btn": { "message": "★ Favorites Only" },
-  "fav_hint": { "message": "Add/remove favorite" },
-  "time_toggle_btn": { "message": "🕐 Timestamps" },
-  "move_to_folder_btn": { "message": "📁 Move to Folder" },
-  "move_to_folder_title": { "message": "Move to Folder" },
-  "moved_to_folder_toast": { "message": "Moved to:" },
-  "removed_from_folder_toast": { "message": "Removed from folder" },
-  "download_include_times": { "message": "Include timestamps" },
-  "fav_added": { "message": "Added to favorites ★" },
-  "fav_added_copied": { "message": "Added to favorites and copied ★" },
-  "fav_removed": { "message": "Removed from favorites" },
-  "translate_btn": { "message": "Translate" },
-  "translate_original_btn": { "message": "Show Original" },
-  "translate_preparing": { "message": "Preparing…" },
-  "translate_downloading": { "message": "Downloading language pack…" },
-  "translate_progress": { "message": "Translating…" },
-  "translate_done": { "message": "Translated." },
-  "translate_error": { "message": "Translation error:" },
-  "translate_no_source": { "message": "Couldn't detect the source language; translation isn't available." },
-  "date_today": { "message": "today" },
-  "date_yesterday": { "message": "yesterday" },
-  "date_days_ago": { "message": "days ago" },
-  "footer_note": { "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. No API key needed, nothing is sent anywhere — everything stays in this browser." }
+  "ext_name": {
+    "message": "skimcast"
+  },
+  "ext_description": {
+    "message": "Paste a link, get a timestamped transcript — searchable, click-to-jump, ad-skip. YouTube, podcasts, articles. Fully local, no API calls."
+  },
+  "popup_title": {
+    "message": "skimcast"
+  },
+  "url_label": {
+    "message": "Link"
+  },
+  "url_placeholder": {
+    "message": "YouTube, podcast RSS, Apple Podcasts, article…"
+  },
+  "fetch_btn": {
+    "message": "Get Transcript"
+  },
+  "status_fetching": {
+    "message": "Fetching transcript…"
+  },
+  "status_done": {
+    "message": "Opened in the viewer tab."
+  },
+  "error_prefix": {
+    "message": "Error:"
+  },
+  "error_no_url": {
+    "message": "Enter a link first."
+  },
+  "error_no_result": {
+    "message": "No entry ID in the URL."
+  },
+  "error_result_not_found": {
+    "message": "This entry was not found (it may have been deleted, or the extension was reloaded)."
+  },
+  "library_btn": {
+    "message": "Library"
+  },
+  "library_link": {
+    "message": "← Library"
+  },
+  "library_title": {
+    "message": "Library"
+  },
+  "library_search_placeholder": {
+    "message": "Search your whole archive…"
+  },
+  "library_empty": {
+    "message": "Nothing here."
+  },
+  "library_delete": {
+    "message": "Delete"
+  },
+  "pin_hint": {
+    "message": "Pin/Unpin"
+  },
+  "sort_newest": {
+    "message": "Newest"
+  },
+  "sort_oldest": {
+    "message": "Oldest"
+  },
+  "sort_title": {
+    "message": "By Title"
+  },
+  "folders_section_title": {
+    "message": "My Files"
+  },
+  "all_folders": {
+    "message": "All"
+  },
+  "no_folder": {
+    "message": "General"
+  },
+  "new_folder_option": {
+    "message": "New Folder…"
+  },
+  "new_folder_title": {
+    "message": "New Folder"
+  },
+  "edit_folder_title": {
+    "message": "Edit Folder"
+  },
+  "edit_folder_hint": {
+    "message": "Edit"
+  },
+  "new_folder_name_placeholder": {
+    "message": "Folder name"
+  },
+  "upload_image_hint": {
+    "message": "Upload your own image"
+  },
+  "modal_cancel": {
+    "message": "Cancel"
+  },
+  "modal_create": {
+    "message": "Create"
+  },
+  "modal_save": {
+    "message": "Save"
+  },
+  "modal_delete": {
+    "message": "Delete"
+  },
+  "delete_folder_confirm": {
+    "message": "Delete this folder? Its videos won't be deleted, just moved to \"General\"."
+  },
+  "fav_view_btn": {
+    "message": "Favorites"
+  },
+  "no_favorites": {
+    "message": "No favorite moments yet. Open a video and click the ☆ next to a line."
+  },
+  "remove_fav_btn": {
+    "message": "Remove"
+  },
+  "search_placeholder": {
+    "message": "Search this transcript…"
+  },
+  "copy_btn": {
+    "message": "📋 Copy Transcript"
+  },
+  "copied": {
+    "message": "Copied!"
+  },
+  "download_btn": {
+    "message": "⬇️ Download"
+  },
+  "download_as_txt": {
+    "message": "As Text (.txt)"
+  },
+  "download_as_pdf": {
+    "message": "As PDF"
+  },
+  "ad_badge": {
+    "message": "possible ad"
+  },
+  "ad_skip": {
+    "message": "Skip →"
+  },
+  "no_matches": {
+    "message": "No matches."
+  },
+  "theme_btn": {
+    "message": "Light/Dark Theme"
+  },
+  "fav_only_btn": {
+    "message": "Favorites Only"
+  },
+  "fav_hint": {
+    "message": "Add/remove favorite"
+  },
+  "time_toggle_btn": {
+    "message": "🕐 Timestamps"
+  },
+  "move_to_folder_btn": {
+    "message": "📁 Move to Folder"
+  },
+  "move_to_folder_title": {
+    "message": "Move to Folder"
+  },
+  "moved_to_folder_toast": {
+    "message": "Moved to:"
+  },
+  "removed_from_folder_toast": {
+    "message": "Removed from folder"
+  },
+  "download_include_times": {
+    "message": "Include timestamps"
+  },
+  "fav_added": {
+    "message": "Added to favorites ★"
+  },
+  "fav_added_copied": {
+    "message": "Added to favorites and copied ★"
+  },
+  "fav_removed": {
+    "message": "Removed from favorites"
+  },
+  "translate_btn": {
+    "message": "Translate"
+  },
+  "translate_original_btn": {
+    "message": "Show Original"
+  },
+  "translate_preparing": {
+    "message": "Preparing…"
+  },
+  "translate_downloading": {
+    "message": "Downloading language pack…"
+  },
+  "translate_progress": {
+    "message": "Translating…"
+  },
+  "translate_done": {
+    "message": "Translated."
+  },
+  "translate_error": {
+    "message": "Translation error:"
+  },
+  "translate_no_source": {
+    "message": "Couldn't detect the source language; translation isn't available."
+  },
+  "date_today": {
+    "message": "today"
+  },
+  "date_yesterday": {
+    "message": "yesterday"
+  },
+  "date_days_ago": {
+    "message": "days ago"
+  },
+  "footer_note": {
+    "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. No API key needed, nothing is sent anywhere — everything stays in this browser."
+  }
 }
