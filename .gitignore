@@ -4,3 +4,4 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .DS_Store
+skills/summarize/native_host_launcher.sh

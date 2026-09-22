@@ -59,10 +59,24 @@ def main() -> None:
 
     host_script.chmod(host_script.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
+    # Tarayıcı bu betiği bir GUI uygulaması olarak başlatır; PATH'i Terminal'inkinden çok daha kısıtlı
+    # olabilir ve "python3" hiç bulunamayabilir ("Native host has exited" hatasının en sık sebebi).
+    # Bu yüzden doğrudan native_host.py'ye değil, şu an çalışan python3'ün TAM yoluna sabitlenmiş bir
+    # kabuk betiğine işaret ediyoruz. stderr de ileride teşhis için bir günlük dosyasına yazılıyor.
+    log_dir = Path.home() / ".cache" / "skimcast"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    launcher = repo_root / "skills" / "summarize" / "native_host_launcher.sh"
+    launcher.write_text(
+        "#!/bin/sh\n"
+        f'exec "{sys.executable}" "{host_script}" "$@" 2>>"{log_dir}/native_host.log"\n',
+        encoding="utf-8",
+    )
+    launcher.chmod(launcher.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
     manifest = {
         "name": HOST_NAME,
         "description": "skimcast: YouTube/podcast transcript yardımcı programı",
-        "path": str(host_script),
+        "path": str(launcher),
         "type": "stdio",
         "allowed_origins": [f"chrome-extension://{EXTENSION_ID}/"],
     }
@@ -80,8 +94,10 @@ def main() -> None:
     if not written:
         raise SystemExit("Desteklenen bir tarayıcı (Chrome/Edge/Chromium/Brave) bulunamadı.")
     print(f"Yardımcı program: {host_script}")
+    print(f"Başlatıcı: {launcher}")
     print(f"Kaydedildi: {', '.join(written)}")
     print("Kullandığın tarayıcıyı tamamen kapat ve yeniden aç, sonra uzantıdan YouTube linkiyle dene.")
+    print(f"Sorun olursa günlük: {log_dir}/native_host.log")
 
 
 if __name__ == "__main__":
