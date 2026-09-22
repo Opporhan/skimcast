@@ -169,6 +169,14 @@ async function init() {
     await persistHighlights();
   }
 
+  // Tek bir favoriyi (yıldızlanmış an) bir klasöre atar — videonun kendisini taşımaktan farklı,
+  // sadece bu belirli anı ilgilendirir. FOLDERS_KEY/getFolders/openMoveToFolderModal aşağıda tanımlı
+  // (fonksiyon bildirimleri hoisted olduğu için burada, tanımdan önce çağırmak sorun değil).
+  async function assignHighlightFolder(hKey, folderName) {
+    entry.highlights = entry.highlights.map((h) => (h.key === hKey ? { ...h, folder: folderName } : h));
+    await persistHighlights();
+  }
+
   // includeTimestamps verilmezse ekrandaki o anki tercihi (showTimestamps) kullanır — kopyala böyle
   // çalışır; indirme modalında ayrıca açıkça seçilebiliyor.
   function currentFullText(includeTimestamps = showTimestamps) {
@@ -212,6 +220,27 @@ async function init() {
       }
     }
 
+    // Favoriyi kendi klasörüne taşıma — sadece yıldızlandıktan sonra anlamlı, o yüzden başta gizli.
+    const folderBtn = document.createElement("button");
+    folderBtn.className = "star-folder-btn";
+    folderBtn.title = t("move_to_folder_title");
+    folderBtn.textContent = "📁";
+    folderBtn.hidden = !isHighlighted(i);
+    folderBtn.addEventListener("click", async (ev) => {
+      ev.stopPropagation();
+      const result = await openMoveToFolderModal();
+      if (!result) return;
+      if (result.isNew) {
+        const existing = await getFolders();
+        if (!existing.some((f) => f.name === result.folder)) {
+          existing.push({ name: result.folder, icon: "📁" });
+          await chrome.storage.local.set({ [FOLDERS_KEY]: existing });
+        }
+      }
+      await assignHighlightFolder(highlightKey(i), result.folder);
+      showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
+    });
+
     const starBtn = document.createElement("button");
     starBtn.className = "star-btn" + (isHighlighted(i) ? " starred" : "");
     starBtn.title = t("fav_hint");
@@ -219,9 +248,11 @@ async function init() {
     starBtn.addEventListener("click", async () => {
       await toggleHighlight(i, starBtn);
       row.dataset.fav = isHighlighted(i) ? "1" : "0";
+      folderBtn.hidden = !isHighlighted(i);
       if (favOnlyOn) applyFilters();
     });
     row.appendChild(starBtn);
+    row.appendChild(folderBtn);
 
     contentEl.appendChild(row);
   });
@@ -452,7 +483,9 @@ async function init() {
     translateSelect.disabled = true;
     return;
   }
-  translateSelect.innerHTML = TRANSLATE_LANGS.filter((l) => l.code !== sourceLang)
+  // Kaynak dili listeden çıkarmıyoruz (ör. İngilizce her zaman seçenek olarak kalsın) — dil tespiti
+  // yanılabiliyor, kullanıcı istediği hedefi her zaman görebilsin.
+  translateSelect.innerHTML = TRANSLATE_LANGS
     .map((l) => `<option value="${l.code}">${escapeHtml(l.label)}</option>`).join("");
 
   function applyTexts(texts, lang) {
@@ -470,6 +503,13 @@ async function init() {
     const target = translateSelect.value;
     translateBtn.disabled = true;
     statusEl.hidden = false;
+
+    if (target === sourceLang) { // zaten bu dilde — çevirmeye gerek yok, orijinali göster
+      applyTexts(blocks.map((b) => b.text), null);
+      statusEl.textContent = t("translate_done");
+      translateBtn.disabled = false;
+      return;
+    }
 
     const cached = entry.translations?.[target];
     if (cached && cached.length === blocks.length) {

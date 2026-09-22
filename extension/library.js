@@ -228,13 +228,14 @@ function openEditFavModal(currentText) {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
-      <div class="modal">
+      <div class="modal modal-large">
         <h2>${t("edit_folder_hint")}</h2>
-        <textarea id="editFavText" class="snippet-edit">${escapeHtml(currentText)}</textarea>
+        <textarea id="editFavText" class="snippet-edit snippet-edit-large"></textarea>
         <div class="modal-actions"><span class="spacer"></span><button id="editCancel">${t("modal_cancel")}</button><button id="editSave" class="primary">${t("modal_save")}</button></div>
       </div>`;
     document.body.appendChild(overlay);
     const textarea = overlay.querySelector("#editFavText");
+    textarea.value = currentText; // innerHTML yerine .value: tırnak içeren metinlerde daha güvenli
     requestAnimationFrame(() => { textarea.focus(); textarea.selectionStart = textarea.value.length; });
     const close = (v) => { overlay.remove(); resolve(v); };
     overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
@@ -318,9 +319,19 @@ async function init() {
       <button id="favViewBtn" class="toggle-btn"><span class="star-ico">★</span> ${t("fav_view_btn")}</button>
     </div>
     <div id="list"></div>
+    <div id="toast" class="toast"></div>
   `;
   mountThemeButton(document.getElementById("themeBtn"));
   mountLangButton(document.getElementById("langBtn"));
+
+  const toastEl = document.getElementById("toast");
+  let toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+  }
 
   const listEl = document.getElementById("list");
   const foldersEl = document.getElementById("folders");
@@ -481,7 +492,10 @@ async function init() {
       const h = full?.highlights?.find((x) => x.key === editFav.dataset.key);
       if (!h) return;
       const newText = await openEditFavModal(h.text);
-      if (newText) await updateHighlight(editFav.dataset.videoId, editFav.dataset.key, { text: newText });
+      if (newText) {
+        await updateHighlight(editFav.dataset.videoId, editFav.dataset.key, { text: newText });
+        showToast(t("modal_save"));
+      }
       render();
       return;
     }
@@ -496,6 +510,7 @@ async function init() {
         }
       }
       await updateHighlight(moveFav.dataset.videoId, moveFav.dataset.key, { folder: result.folder });
+      showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
       render();
     }
   });

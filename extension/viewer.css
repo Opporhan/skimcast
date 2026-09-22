@@ -15,8 +15,9 @@
   --shadow: 0 8px 40px rgba(0, 0, 0, .18);
 }
 :root[data-theme="dark"] {
-  --bg: #000; --bg-subtle: #1c1c1e; --text: #f5f5f7; --text-muted: #98989d; --border: #2c2c2e;
-  --accent: #9d8cff; --accent-soft: #221f38; --mark: #6b5c1e;
+  /* Tam siyah değil — lacivert tonlu bir koyu tema (dark navy). */
+  --bg: #0b0f1a; --bg-subtle: #151b2b; --text: #e8eaf0; --text-muted: #8b93a8; --border: #232a3d;
+  --accent: #9d8cff; --accent-soft: #1f2440; --mark: #6b5c1e;
   --error-bg: #3a1f1c; --error-text: #ff6961; --ad-bg: #332a12; --ad-text: #e0b060; --star: #e0b060;
   --shadow: 0 8px 40px rgba(0, 0, 0, .5);
 }
@@ -128,12 +129,17 @@ button:hover { filter: brightness(.96); }
 }
 .block .ad-skip:hover { color: var(--text); background: var(--bg-subtle); }
 .block .star-btn {
-  /* Önceki renk (--border) neredeyse görünmezdi, "belirgin değil" şikayeti buradandı. */
+  /* Boşken (☆) belirgin, koyu bir dış çizgi; dolunca (★) sarı/altın renge dönüyor. */
   flex-shrink: 0; font-size: 19px; padding: 3px 7px; line-height: 1; background: none;
-  color: var(--text-muted); cursor: pointer; border-radius: 8px;
+  color: var(--text); cursor: pointer; border-radius: 8px;
 }
 .block .star-btn:hover { color: var(--star); background: var(--ad-bg); }
 .block .star-btn.starred { color: var(--star); background: var(--ad-bg); }
+.block .star-folder-btn {
+  flex-shrink: 0; font-size: 14px; padding: 3px 6px; line-height: 1; background: none;
+  color: var(--text-muted); cursor: pointer;
+}
+.block .star-folder-btn:hover { color: var(--accent); background: var(--accent-soft); border-radius: 8px; }
 
 .toast {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(8px);
