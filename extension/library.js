@@ -1,6 +1,7 @@
 // skimcast (uzantı): library.js — arşivlenmiş tüm transcript'lerin listesi, aralarında tam metin arama,
-// "Dosyalarım" bölümünde klasörlere ayırma (ör. "Yapay Zeka", "Felsefe"), sabitleme, sıralama ve tüm
-// videolardaki favori (yıldızlanmış) anların tek bir yerde toplandığı "Favoriler" görünümü.
+// "Dosyalarım" bölümünde klasörlere ayırma (ör. "Yapay Zeka", "Felsefe"; özel ikon/görsel, yeniden
+// adlandırma, silme), sabitleme, sıralama ve tüm videolardaki favori (yıldızlanmış) anların tek bir
+// yerde toplandığı "Favoriler" görünümü.
 
 function t(key) { return chrome.i18n.getMessage(key) || key; }
 
@@ -10,19 +11,39 @@ function escapeHtml(s) {
 
 const archiveKey = (id) => `skimcastArchive:${id}`;
 const ARCHIVE_INDEX_KEY = "skimcastArchiveIndex";
-const NO_FOLDER = ""; // klasörsüz ("Genel")
-
-function relativeDate(ts) {
-  const days = Math.floor((Date.now() - ts) / 86400000);
-  if (days <= 0) return t("date_today");
-  if (days === 1) return t("date_yesterday");
-  if (days < 30) return `${days} ${t("date_days_ago")}`;
-  return new Date(ts).toLocaleDateString();
-}
+const FOLDERS_KEY = "skimcastFolders";
+const NO_FOLDER = ""; // klasörsüz
+const DEFAULT_ICON = "📁";
+const ICON_CHOICES = ["📁", "🤖", "🧠", "📚", "🎬", "🎙️", "💼", "🎓", "🎮", "🌍", "❤️", "⭐", "🎨", "🧪"];
 
 async function getIndex() {
   const { [ARCHIVE_INDEX_KEY]: index = [] } = await chrome.storage.local.get(ARCHIVE_INDEX_KEY);
   return index;
+}
+
+async function getFolders() {
+  const { [FOLDERS_KEY]: folders = [] } = await chrome.storage.local.get(FOLDERS_KEY);
+  return folders;
+}
+
+async function saveFolders(folders) {
+  await chrome.storage.local.set({ [FOLDERS_KEY]: folders });
+}
+
+// Bir klasördeki (adı `from`) tüm kayıtları başka bir klasöre (`to`) taşır — hem hafif dizinde hem tam
+// kayıtlarda. Klasör silinirken to="" (Genel) verilir, yeniden adlandırılırken yeni isim verilir.
+async function reassignFolder(from, to) {
+  const index = await getIndex();
+  const affected = index.filter((e) => e.folder === from);
+  if (!affected.length) return;
+  const nextIndex = index.map((e) => (e.folder === from ? { ...e, folder: to } : e));
+  const patch = { [ARCHIVE_INDEX_KEY]: nextIndex };
+  for (const e of affected) {
+    const fk = archiveKey(e.id);
+    const { [fk]: full } = await chrome.storage.local.get(fk);
+    if (full) patch[fk] = { ...full, folder: to };
+  }
+  await chrome.storage.local.set(patch);
 }
 
 async function updateEntry(id, patch) {
@@ -31,7 +52,7 @@ async function updateEntry(id, patch) {
   if (!entry) return null;
   const updated = { ...entry, ...patch };
   const index = await getIndex();
-  const nextIndex = index.map((e) => (e.id === id ? { ...e, folder: updated.folder || NO_FOLDER, pinned: !!updated.pinned } : e));
+  const nextIndex = index.map((e) => (e.id === id ? { ...e, folder: updated.folder ?? e.folder, pinned: !!updated.pinned } : e));
   await chrome.storage.local.set({ [fullKey]: updated, [ARCHIVE_INDEX_KEY]: nextIndex });
   return updated;
 }
@@ -51,42 +72,77 @@ function sortIndex(index, sortBy) {
   return [...sorted.filter((e) => e.pinned), ...sorted.filter((e) => !e.pinned)]; // sabitlenenler üstte
 }
 
-function allFolders(index) {
-  return [...new Set(index.map((e) => e.folder).filter(Boolean))].sort();
+function iconHtml(icon) {
+  return icon && icon.startsWith("data:") ? `<img src="${icon}" alt="">` : escapeHtml(icon || DEFAULT_ICON);
 }
 
-// ------------------------------------------------------------ "yeni klasör" modalı (ekranın ortasında)
-function openFolderModal() {
+// ------------------------------------------------------------ klasör modalı (oluştur / düzenle / sil)
+// Aynı modal hem yeni klasör açmak hem var olanı düzenlemek (isim, ikon/görsel değiştirme, silme) için
+// kullanılıyor. Ekranın ortasında açılır (window.prompt() değil).
+function openFolderModal(existing) {
   return new Promise((resolve) => {
+    const isEdit = !!existing;
+    let icon = existing?.icon || DEFAULT_ICON;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
       <div class="modal">
-        <h2>${t("new_folder_title")}</h2>
-        <input id="modalFolderName" type="text" placeholder="${escapeHtml(t("new_folder_name_placeholder"))}">
+        <h2>${isEdit ? t("edit_folder_title") : t("new_folder_title")}</h2>
+        <div class="icon-preview" id="iconPreview">${iconHtml(icon)}</div>
+        <input id="modalFolderName" type="text" placeholder="${escapeHtml(t("new_folder_name_placeholder"))}" value="${escapeHtml(existing?.name || "")}">
+        <div class="icon-grid">
+          ${ICON_CHOICES.map((ic) => `<button type="button" class="icon-choice" data-icon="${escapeHtml(ic)}">${ic}</button>`).join("")}
+          <button type="button" class="icon-choice icon-upload" id="iconUploadBtn" title="${escapeHtml(t("upload_image_hint"))}">🖼️</button>
+          <input type="file" id="iconUploadInput" accept="image/*" hidden>
+        </div>
         <div class="modal-actions">
+          ${isEdit ? `<button id="modalDelete" class="danger">${t("modal_delete")}</button>` : ""}
+          <span class="spacer"></span>
           <button id="modalCancel">${t("modal_cancel")}</button>
-          <button id="modalCreate" class="primary">${t("modal_create")}</button>
+          <button id="modalSave" class="primary">${isEdit ? t("modal_save") : t("modal_create")}</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
+
     const input = overlay.querySelector("#modalFolderName");
+    const preview = overlay.querySelector("#iconPreview");
     requestAnimationFrame(() => input.focus());
-    const close = (value) => { overlay.remove(); resolve(value); };
+
+    const close = (result) => { overlay.remove(); resolve(result); };
     overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
     overlay.querySelector("#modalCancel").addEventListener("click", () => close(null));
-    overlay.querySelector("#modalCreate").addEventListener("click", () => close(input.value.trim() || null));
     input.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") close(input.value.trim() || null);
+      if (e.key === "Enter") overlay.querySelector("#modalSave").click();
       if (e.key === "Escape") close(null);
+    });
+
+    overlay.querySelectorAll(".icon-choice[data-icon]").forEach((btn) => {
+      btn.addEventListener("click", () => { icon = btn.dataset.icon; preview.innerHTML = iconHtml(icon); });
+    });
+    const fileInput = overlay.querySelector("#iconUploadInput");
+    overlay.querySelector("#iconUploadBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { icon = reader.result; preview.innerHTML = iconHtml(icon); };
+      reader.readAsDataURL(file);
+    });
+
+    overlay.querySelector("#modalSave").addEventListener("click", () => {
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      close({ action: "save", name, icon });
+    });
+    overlay.querySelector("#modalDelete")?.addEventListener("click", () => {
+      if (confirm(t("delete_folder_confirm"))) close({ action: "delete" });
     });
   });
 }
 
 function folderSelectHtml(e, folders) {
   const options = [`<option value="${NO_FOLDER}">${escapeHtml(t("no_folder"))}</option>`,
-    ...folders.map((f) => `<option value="${escapeHtml(f)}"${f === e.folder ? " selected" : ""}>${escapeHtml(f)}</option>`),
-    `<option value="__new__">${escapeHtml(t("new_folder_option"))}</option>`];
+    ...folders.map((f) => `<option value="${escapeHtml(f.name)}"${f.name === e.folder ? " selected" : ""}>${escapeHtml(f.name)}</option>`)];
   return `<select class="folder-select" data-id="${escapeHtml(e.id)}">${options.join("")}</select>`;
 }
 
@@ -104,6 +160,14 @@ function entryRowHtml(e, folders) {
         <button class="delete" data-id="${escapeHtml(e.id)}">${t("library_delete")}</button>
       </div>
     </div>`;
+}
+
+function relativeDate(ts) {
+  const days = Math.floor((Date.now() - ts) / 86400000);
+  if (days <= 0) return t("date_today");
+  if (days === 1) return t("date_yesterday");
+  if (days < 30) return `${days} ${t("date_days_ago")}`;
+  return new Date(ts).toLocaleDateString();
 }
 
 function snippetHtml(text, q) {
@@ -187,22 +251,24 @@ async function init() {
   const sortSelect = document.getElementById("sortBy");
   const favViewBtn = document.getElementById("favViewBtn");
   let index = await getIndex();
+  let folders = await getFolders();
   let favView = false;
   let activeFolder = null; // null = Tümü
 
+  function countFor(name) {
+    return name === null ? index.length : index.filter((e) => e.folder === name).length;
+  }
+
   function renderFolderCards() {
-    const folders = allFolders(index);
-    const countFor = (name) => name === null ? index.length
-      : name === NO_FOLDER ? index.filter((e) => !e.folder).length
-      : index.filter((e) => e.folder === name).length;
-    const cards = [{ name: null, label: t("all_folders") }, { name: NO_FOLDER, label: t("no_folder") },
-      ...folders.map((f) => ({ name: f, label: f }))];
+    const cards = [{ name: null, label: t("all_folders"), icon: "🗂️", system: true },
+      ...folders.map((f) => ({ name: f.name, label: f.name, icon: f.icon }))];
     foldersEl.innerHTML = cards.map((f) => `
-      <button class="folder-card${activeFolder === f.name ? " active" : ""}" data-folder="${escapeHtml(f.name ?? "")}" data-all="${f.name === null ? "1" : "0"}">
-        <span class="folder-icon">📁</span>
+      <div class="folder-card${activeFolder === f.name ? " active" : ""}" data-folder="${escapeHtml(f.name ?? "")}" data-all="${f.system ? "1" : "0"}">
+        ${!f.system ? `<button class="folder-edit-btn" data-folder="${escapeHtml(f.name)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>` : ""}
+        <span class="folder-icon">${iconHtml(f.icon)}</span>
         <span class="folder-name">${escapeHtml(f.label)}</span>
         <span class="folder-count">${countFor(f.name)}</span>
-      </button>`).join("") +
+      </div>`).join("") +
       `<button class="folder-card folder-card-add" id="newFolderBtn">
         <span class="folder-icon">＋</span>
         <span class="folder-name">${t("new_folder_option").replace("…", "")}</span>
@@ -211,9 +277,8 @@ async function init() {
   }
 
   function renderList() {
-    const filtered = activeFolder === null ? index : index.filter((e) => (e.folder || NO_FOLDER) === activeFolder);
+    const filtered = activeFolder === null ? index : index.filter((e) => e.folder === activeFolder);
     const sorted = sortIndex(filtered, sortSelect.value);
-    const folders = allFolders(index);
     listEl.innerHTML = sorted.length ? sorted.map((e) => entryRowHtml(e, folders)).join("") : `<p class="hint">${t("library_empty")}</p>`;
   }
 
@@ -257,8 +322,33 @@ async function init() {
 
   foldersEl.addEventListener("click", async (e) => {
     if (e.target.closest("#newFolderBtn")) {
-      const name = await openFolderModal();
-      if (name) activeFolder = name; // boş klasör: ilk video atanınca kalıcılaşır
+      const result = await openFolderModal();
+      if (result?.action === "save") {
+        if (folders.some((f) => f.name === result.name)) { activeFolder = result.name; render(); return; }
+        folders.push({ name: result.name, icon: result.icon });
+        await saveFolders(folders);
+        activeFolder = result.name;
+      }
+      render();
+      return;
+    }
+    const editBtn = e.target.closest(".folder-edit-btn");
+    if (editBtn) {
+      const current = folders.find((f) => f.name === editBtn.dataset.folder);
+      const result = await openFolderModal(current);
+      if (result?.action === "save") {
+        if (result.name !== current.name) await reassignFolder(current.name, result.name);
+        folders = folders.map((f) => (f.name === current.name ? { name: result.name, icon: result.icon } : f));
+        await saveFolders(folders);
+        index = await getIndex();
+        if (activeFolder === current.name) activeFolder = result.name;
+      } else if (result?.action === "delete") {
+        await reassignFolder(current.name, NO_FOLDER);
+        folders = folders.filter((f) => f.name !== current.name);
+        await saveFolders(folders);
+        index = await getIndex();
+        if (activeFolder === current.name) activeFolder = null;
+      }
       render();
       return;
     }
@@ -271,12 +361,7 @@ async function init() {
   listEl.addEventListener("change", async (e) => {
     const select = e.target.closest(".folder-select");
     if (!select) return;
-    let folder = select.value;
-    if (folder === "__new__") {
-      folder = await openFolderModal() || "";
-      if (!folder) { render(); return; }
-    }
-    await updateEntry(select.dataset.id, { folder });
+    await updateEntry(select.dataset.id, { folder: select.value });
     index = await getIndex();
     render();
   });

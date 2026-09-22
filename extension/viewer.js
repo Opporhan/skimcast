@@ -98,13 +98,7 @@ async function init() {
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
       <button id="favOnlyBtn" class="toggle-btn">${t("fav_only_btn")}</button>
       <button id="copyBtn">${t("copy_btn")}</button>
-      <div class="download-wrap">
-        <button id="downloadBtn">${t("download_btn")}</button>
-        <div id="downloadMenu" class="download-menu" hidden>
-          <button id="downloadTxt">${t("download_as_txt")}</button>
-          <button id="downloadPdf">${t("download_as_pdf")}</button>
-        </div>
-      </div>
+      <button id="downloadBtn">${t("download_btn")}</button>
     </div>
     ${canTranslate ? `
     <div class="toolbar translate-bar">
@@ -301,15 +295,35 @@ async function init() {
     chrome.tabs.create({ url: URL.createObjectURL(blob) });
   }
 
-  const downloadBtn = document.getElementById("downloadBtn");
-  const downloadMenu = document.getElementById("downloadMenu");
-  downloadBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    downloadMenu.hidden = !downloadMenu.hidden;
+  // Önceki sürüm küçük bir açılır menü (dropdown) kullanıyordu; konumlandırması güvenilir değildi
+  // (boş/bozuk bir kutu gibi görünebiliyordu). Aynı, kanıtlanmış ortalanmış-modal deseniyle değiştirildi.
+  function openDownloadModal() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.innerHTML = `
+        <div class="modal">
+          <h2>${t("download_btn")}</h2>
+          <div class="modal-actions" style="margin-top:0">
+            <button id="asTxt" class="primary">${t("download_as_txt")}</button>
+            <button id="asPdf" class="primary">${t("download_as_pdf")}</button>
+          </div>
+          <div class="modal-actions"><span class="spacer"></span><button id="dlCancel">${t("modal_cancel")}</button></div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const close = (choice) => { overlay.remove(); resolve(choice); };
+      overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
+      overlay.querySelector("#dlCancel").addEventListener("click", () => close(null));
+      overlay.querySelector("#asTxt").addEventListener("click", () => close("txt"));
+      overlay.querySelector("#asPdf").addEventListener("click", () => close("pdf"));
+    });
+  }
+
+  document.getElementById("downloadBtn").addEventListener("click", async () => {
+    const choice = await openDownloadModal();
+    if (choice === "txt") downloadTxt();
+    if (choice === "pdf") downloadPdf();
   });
-  document.addEventListener("click", () => { downloadMenu.hidden = true; });
-  document.getElementById("downloadTxt").addEventListener("click", () => { downloadMenu.hidden = true; downloadTxt(); });
-  document.getElementById("downloadPdf").addEventListener("click", () => { downloadMenu.hidden = true; downloadPdf(); });
 
   // ------------------------------------------------------------ çeviri (cihaz üzerinde)
   if (!canTranslate) return;

@@ -65,13 +65,19 @@ button {
 button:hover { filter: brightness(.96); }
 .toggle-btn.active { background: var(--accent-soft); color: var(--accent); }
 
-.download-wrap { position: relative; }
-.download-menu {
-  position: absolute; right: 0; top: calc(100% + 6px); background: var(--bg); border-radius: 12px;
-  box-shadow: var(--shadow); padding: 6px; min-width: 160px; z-index: 3;
+/* ------------------------------------------------------------ modal (indirme seçimi) */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, .35);
+  display: flex; align-items: center; justify-content: center; z-index: 10;
 }
-.download-menu button { display: block; width: 100%; text-align: left; background: none; border-radius: 8px; }
-.download-menu button:hover { background: var(--bg-subtle); }
+.modal {
+  background: var(--bg); border-radius: 16px; padding: 22px; width: 280px; box-shadow: var(--shadow);
+}
+.modal h2 { font-size: 15px; margin: 0 0 14px; }
+.modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.modal-actions .spacer { flex: 1; }
+.modal-actions .primary { flex: 1; background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.modal-actions .primary:hover { filter: brightness(1.06); }
 
 .content { display: flex; flex-direction: column; margin-top: 12px; }
 .block {
