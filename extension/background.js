@@ -245,15 +245,20 @@ ${text}
 
 async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000); // ağ takılırsa sonsuza kadar beklemeyelim
   let res;
   try {
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens } }),
+      signal: controller.signal,
     });
   } catch (e) {
-    throw new SkimError(`Gemini'ye bağlanılamadı: ${e.message}`);
+    throw new SkimError(e.name === "AbortError" ? "Gemini 60 saniyede yanıt vermedi (zaman aşımı)." : `Gemini'ye bağlanılamadı: ${e.message}`);
+  } finally {
+    clearTimeout(timeout);
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {

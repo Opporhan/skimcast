@@ -22,6 +22,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import transcript as tr
 
+# Uzantı etkileşimli bir arayüz: kullanıcı saniyeler içinde bir sonuç bekliyor. transcript.py'nin son
+# çare yolu olan whisper (yerel ses deşifresi) CPU'da gerçek zamanlı ya da daha yavaş çalışıyor — uzun
+# bir video için onlarca dakika sürüp "hiç bitmiyor" hissi verebilir. Bu yüzden burada whisper'ı kapatıp
+# hazır altyazı yoksa hemen net bir hata veriyoruz (Claude Code + skimcast plugin'i whisper ile çalışır,
+# orada bekleme zaten beklenen ve ilerleme gösteriliyor).
+def _no_whisper(*_args, **_kwargs):
+    raise tr.SkimError(
+        "Bu videoda hazır altyazı yok. Yerel deşifre (whisper) dakikalarca sürebileceği için uzantıda "
+        "kapalı. Hazır altyazısı olan başka bir video dene, ya da uzun deşifre için Claude Code + "
+        "skimcast plugin'ini kullan."
+    )
+
+
+tr.whisper = _no_whisper
+
 
 def read_message():
     raw_len = sys.stdin.buffer.read(4)
