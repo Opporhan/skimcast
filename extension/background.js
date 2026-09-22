@@ -85,7 +85,14 @@ function scrapeTranscriptInPage() {
         segs = qa("ytd-transcript-segment-renderer");
         if (segs.length) break;
       }
-      if (!segs.length) return resolve({ error: "no-segments" });
+      if (!segs.length) {
+        // teşhis: panel gerçekten açıldı mı, içinde ne var? (seçici YouTube'da değişmiş olabilir)
+        const panel = q('[target-id="engagement-panel-searchable-transcript"]');
+        const debug = panel
+          ? `panel var, ${panel.querySelectorAll("*").length} alt öğe, metin: "${panel.innerText.slice(0, 200).replace(/\n+/g, " | ")}"`
+          : "panel DOM'da hiç yok (buton tıklaması paneli açmamış olabilir)";
+        return resolve({ error: "no-segments", debug });
+      }
 
       const out = segs.map((s) => {
         const timeEl = q(".segment-timestamp", s);
@@ -148,7 +155,7 @@ async function fromYoutube(videoId) {
     throw new SkimError("Bu videoda transcript bulunamadı (YouTube'da \"Transkripti göster\" düğmesi yok; video altyazısız olabilir).");
   }
   if (result.error === "no-segments") {
-    throw new SkimError("Transcript paneli açıldı ama metin gelmedi. Video altyazısız olabilir ya da YouTube geçici bir sorun yaşıyor olabilir; tekrar deneyin.");
+    throw new SkimError(`Transcript paneli açıldı ama metin gelmedi. Teşhis: ${result.debug || "(yok)"}`);
   }
   const segs = result.segments;
   const duration = segs.length ? segs[segs.length - 1][0] : 0;
