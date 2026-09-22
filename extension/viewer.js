@@ -1,7 +1,9 @@
 // skimcast (uzantı): viewer.js — background.js'in arşive kaydettiği transcript'i gösterir. Özet üretmez;
-// zaman damgalı transcript'i arama, tıkla-git, olası reklam tespiti ve alıntı/kopyala/indir katmanlarıyla
-// sunar (bkz. proje kararı: LLM'e dayalı özetleme bir gece süren kota/güvenilirlik sorunları yüzünden
-// terk edildi — bu sayfa artık hiçbir dış API'ye gitmiyor, tamamen yerel çalışıyor).
+// zaman damgalı transcript'i arama, tıkla-git, olası reklam tespiti, alıntı/kopyala/indir ve (cihaz
+// üzerinde, ücretsiz/kotasız) çeviri katmanlarıyla sunar. Çeviri hariç hiçbir dış API'ye gitmez; çeviri
+// de Chrome/Edge'in yerleşik Translator/LanguageDetector API'siyle tamamen cihazda çalışır — bir bulut
+// LLM'e istek atmaz (bkz. proje kararı: özetleme bir gece süren kota/güvenilirlik sorunları yüzünden
+// terk edildi, aynı riski çeviriye de bulaştırmıyoruz).
 
 function t(key) { return chrome.i18n.getMessage(key) || key; }
 
@@ -18,7 +20,8 @@ function fmtTime(sec) {
 
 // Kaba, isteğe bağlı bir sezgisel: transcript metninde sponsor/reklam okuması gibi görünen kalıpları
 // arar. Kesin değildir (bir topluluk veritabanına değil, tek bir metne dayanıyor) — bu yüzden arayüzde
-// "olası reklam" diye etiketleniyor, kesin bir iddia gibi sunulmuyor.
+// "olası reklam" diye etiketleniyor, kesin bir iddia gibi sunulmuyor. Her zaman ORİJİNAL metne bakılır
+// (çeviri sonrası tekrar çalıştırılmaz) çünkü kalıp listesi orijinal dillere göre ayarlı.
 const AD_PATTERNS = [
   /\bsponsor(lu|luk|luğunda|ed)?\b/i,
   /(bu (video|bölüm)\w*|this (video|episode))\s+.{0,40}(sponsorluğunda|tarafından sunul\w*|destekle\w*|is sponsored by|brought to you by)/i,
@@ -40,10 +43,37 @@ function openInTab(url) {
   chrome.tabs.create({ url, active: true });
 }
 
-async function flashLabel(btn, label) {
+function flashLabel(btn, label) {
   const original = btn.textContent;
   btn.textContent = label;
   setTimeout(() => { btn.textContent = original; }, 1500);
+}
+
+// ------------------------------------------------------------ çeviri (cihaz üzerinde, Translator API)
+const TRANSLATE_LANGS = [
+  { code: "tr", label: "Türkçe" },
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+  { code: "fr", label: "Français" },
+  { code: "de", label: "Deutsch" },
+  { code: "ja", label: "日本語" },
+  { code: "pt", label: "Português" },
+  { code: "ar", label: "العربية" },
+  { code: "ru", label: "Русский" },
+];
+
+// Transcript'in kaynak dilini kullanıcıya sormadan tespit eder (LanguageDetector, indirme gerektirmez).
+// Translator API "auto" kaynak dil kabul etmiyor, çift dilli (kaynak+hedef) bir çift istiyor.
+async function detectSourceLanguage(sampleText) {
+  if (typeof LanguageDetector === "undefined") return null;
+  try {
+    if ((await LanguageDetector.availability()) === "unavailable") return null;
+    const detector = await LanguageDetector.create();
+    const [top] = await detector.detect(sampleText.slice(0, 800));
+    return top && top.detectedLanguage !== "und" && top.confidence > 0.4 ? top.detectedLanguage : null;
+  } catch {
+    return null;
+  }
 }
 
 async function init() {
@@ -58,6 +88,7 @@ async function init() {
   const { meta, blocks } = entry;
   document.title = meta.title || "skimcast";
   const metaLine = [meta.title, meta.duration, meta.method].filter(Boolean).join(" · ");
+  const canTranslate = typeof Translator !== "undefined";
 
   app.innerHTML = `
     <header>
@@ -70,19 +101,30 @@ async function init() {
       <button id="copyBtn">${t("copy_btn")}</button>
       <button id="downloadBtn">${t("download_btn")}</button>
     </div>
+    ${canTranslate ? `
+    <div class="toolbar translate-bar">
+      <select id="translateLang"></select>
+      <button id="translateBtn">${t("translate_btn")}</button>
+      <button id="originalBtn" hidden>${t("translate_original_btn")}</button>
+      <span id="translateStatus" class="hint" hidden></span>
+    </div>` : ""}
     <p id="noMatches" class="hint" hidden>${t("no_matches")}</p>
     <div class="content" id="content"></div>
   `;
 
   const contentEl = document.getElementById("content");
-  const fullText = blocks.map((b) => (b.sec != null ? `[${fmtTime(b.sec)}] ` : "") + b.text).join("\n");
+  // state.texts[i]: o an EKRANDA GÖRÜNEN metin (orijinal ya da çevrilmiş) — kopyala/indir/alıntı/arama
+  // hep buradan okur, blocks[i].text her zaman orijinal kalır (geri dönebilmek için).
+  const state = { texts: blocks.map((b) => b.text), lang: null };
 
-  // Her blok için: (varsa) tıkla-git zaman damgası, metin, (varsa) "olası reklam" rozeti + atlama linki,
-  // ve bir "alıntıla" düğmesi. Arama filtrelemesi data-text üzerinden çalışır, DOM'u yeniden kurmaz.
+  function currentFullText() {
+    return blocks.map((b, i) => (b.sec != null ? `[${fmtTime(b.sec)}] ` : "") + state.texts[i]).join("\n");
+  }
+
   blocks.forEach((b, i) => {
     const row = document.createElement("div");
     row.className = "block";
-    row.dataset.text = b.text.toLocaleLowerCase("tr");
+    row.dataset.text = state.texts[i].toLocaleLowerCase("tr");
 
     if (b.sec != null) {
       const time = document.createElement(jumpUrl(meta, b.sec) ? "button" : "span");
@@ -95,7 +137,7 @@ async function init() {
 
     const textSpan = document.createElement("span");
     textSpan.className = "text";
-    textSpan.textContent = b.text;
+    textSpan.textContent = state.texts[i];
     row.appendChild(textSpan);
 
     if (isLikelyAd(b.text)) {
@@ -120,7 +162,7 @@ async function init() {
     quoteBtn.textContent = t("quote_btn");
     quoteBtn.addEventListener("click", async () => {
       const url = jumpUrl(meta, b.sec);
-      const quote = `"${b.text}" — ${meta.title}${b.sec != null ? ` [${fmtTime(b.sec)}]` : ""}${url ? `\n${url}` : ""}`;
+      const quote = `"${state.texts[i]}" — ${meta.title}${b.sec != null ? ` [${fmtTime(b.sec)}]` : ""}${url ? `\n${url}` : ""}`;
       try {
         await navigator.clipboard.writeText(quote);
         flashLabel(quoteBtn, t("copied"));
@@ -147,8 +189,7 @@ async function init() {
       if (!q) {
         textSpan.textContent = textSpan.textContent; // vurgulamayı temizle (zaten düz metin)
       } else if (match) {
-        const original = row.dataset.text;
-        const idx = original.indexOf(q);
+        const idx = row.dataset.text.indexOf(q);
         const raw = textSpan.textContent;
         textSpan.innerHTML = `${escapeHtml(raw.slice(0, idx))}<mark>${escapeHtml(raw.slice(idx, idx + q.length))}</mark>${escapeHtml(raw.slice(idx + q.length))}`;
       }
@@ -167,19 +208,94 @@ async function init() {
   // ------------------------------------------------------------ kopyala / indir
   document.getElementById("copyBtn").addEventListener("click", async (e) => {
     try {
-      await navigator.clipboard.writeText(fullText);
+      await navigator.clipboard.writeText(currentFullText());
       flashLabel(e.currentTarget, t("copied"));
     } catch { /* pano izni yoksa sessizce geç */ }
   });
 
   document.getElementById("downloadBtn").addEventListener("click", () => {
-    const blob = new Blob([fullText], { type: "text/plain;charset=utf-8" });
+    const blob = new Blob([currentFullText()], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
     a.download = `${(meta.title || "transcript").replace(/[\\/:*?"<>|]+/g, " ").trim()}.txt`;
     a.click();
     URL.revokeObjectURL(url);
+  });
+
+  // ------------------------------------------------------------ çeviri (cihaz üzerinde)
+  if (!canTranslate) return;
+
+  const translateSelect = document.getElementById("translateLang");
+  const translateBtn = document.getElementById("translateBtn");
+  const originalBtn = document.getElementById("originalBtn");
+  const statusEl = document.getElementById("translateStatus");
+
+  const sourceLang = await detectSourceLanguage(blocks.map((b) => b.text).join(" "));
+  if (!sourceLang) {
+    statusEl.hidden = false;
+    statusEl.textContent = t("translate_no_source");
+    translateBtn.disabled = true;
+    translateSelect.disabled = true;
+    return;
+  }
+  translateSelect.innerHTML = TRANSLATE_LANGS.filter((l) => l.code !== sourceLang)
+    .map((l) => `<option value="${l.code}">${escapeHtml(l.label)}</option>`).join("");
+
+  function applyTexts(texts, lang) {
+    state.texts = texts;
+    state.lang = lang;
+    rows.forEach((row, i) => {
+      row.dataset.text = texts[i].toLocaleLowerCase("tr");
+      row.querySelector(".text").textContent = texts[i];
+    });
+    applySearch(searchInput.value);
+    originalBtn.hidden = lang === null;
+  }
+
+  translateBtn.addEventListener("click", async () => {
+    const target = translateSelect.value;
+    translateBtn.disabled = true;
+    statusEl.hidden = false;
+
+    const cached = entry.translations?.[target];
+    if (cached && cached.length === blocks.length) {
+      applyTexts(cached, target);
+      statusEl.textContent = t("translate_done");
+      translateBtn.disabled = false;
+      return;
+    }
+
+    try {
+      statusEl.textContent = t("translate_preparing");
+      const translator = await Translator.create({
+        sourceLanguage: sourceLang,
+        targetLanguage: target,
+        monitor(m) {
+          m.addEventListener("downloadprogress", (e) => {
+            statusEl.textContent = `${t("translate_downloading")} ${Math.round(e.loaded * 100)}%`;
+          });
+        },
+      });
+      const translated = [];
+      for (let i = 0; i < blocks.length; i++) {
+        statusEl.textContent = `${t("translate_progress")} ${i + 1}/${blocks.length}`;
+        translated.push(await translator.translate(blocks[i].text));
+      }
+      applyTexts(translated, target);
+      statusEl.textContent = t("translate_done");
+      entry.translations = { ...(entry.translations || {}), [target]: translated };
+      await chrome.storage.local.set({ [key]: entry }); // sonraki açılışta tekrar çevirmeye gerek kalmasın
+    } catch (e) {
+      statusEl.textContent = `${t("translate_error")} ${e.message || e}`;
+    } finally {
+      translateBtn.disabled = false;
+    }
+  });
+
+  originalBtn.addEventListener("click", () => {
+    applyTexts(blocks.map((b) => b.text), null);
+    statusEl.hidden = true;
   });
 }
 
