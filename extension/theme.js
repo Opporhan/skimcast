@@ -1,27 +1,28 @@
-// skimcast (uzantı): theme.js — açık/koyu/sistem temasını sayfalar arasında ortak uygular. popup,
-// viewer ve library sayfalarının hepsi bunu yükler; chrome.storage.local'deki tek bir tercih
-// (skimcastTheme) hepsinde aynı anda geçerli olur. CSS tarafı her sayfanın kendi .css dosyasında
-// :root[data-theme="dark"] / (data-theme yoksa) prefers-color-scheme ile tanımlı.
-const THEME_KEY = "skimcastTheme"; // "light" | "dark" | "system" (varsayılan)
-const THEME_ORDER = ["system", "light", "dark"];
-const THEME_ICON = { system: "🖥️", light: "☀️", dark: "🌙" };
+// skimcast (uzantı): theme.js — açık/koyu temayı sayfalar arasında ortak uygular. popup, viewer ve
+// library sayfalarının hepsi bunu yükler; chrome.storage.local'deki tek bir tercih (skimcastTheme)
+// hepsinde aynı anda geçerli olur. İlk açılışta sistem tercihine göre başlar, sonrasında düğmeyle
+// elle değiştirilen sabit bir seçimdir (otomatik sistem takibi yok — bilinçli olarak sade tutuldu).
+const THEME_KEY = "skimcastTheme"; // "light" | "dark"
+
+function systemDefault() {
+  return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
 
 async function getTheme() {
-  const { [THEME_KEY]: theme = "system" } = await chrome.storage.local.get(THEME_KEY);
-  return theme;
+  const { [THEME_KEY]: theme } = await chrome.storage.local.get(THEME_KEY);
+  return theme || systemDefault();
 }
 
 function applyThemeAttr(theme) {
-  if (theme === "system") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.theme = theme;
 }
 
 async function initTheme() {
   applyThemeAttr(await getTheme());
 }
 
-async function cycleTheme() {
-  const next = THEME_ORDER[(THEME_ORDER.indexOf(await getTheme()) + 1) % THEME_ORDER.length];
+async function toggleTheme() {
+  const next = (await getTheme()) === "dark" ? "light" : "dark";
   await chrome.storage.local.set({ [THEME_KEY]: next });
   applyThemeAttr(next);
   return next;
@@ -29,8 +30,9 @@ async function cycleTheme() {
 
 // Her sayfa kendi başlığına bunu çağırıp bir tema düğmesi ekler.
 async function mountThemeButton(btn) {
-  btn.textContent = THEME_ICON[await getTheme()];
-  btn.addEventListener("click", async () => { btn.textContent = THEME_ICON[await cycleTheme()]; });
+  const setIcon = (theme) => { btn.textContent = theme === "dark" ? "☀️" : "🌙"; };
+  setIcon(await getTheme());
+  btn.addEventListener("click", async () => setIcon(await toggleTheme()));
 }
 
 initTheme();

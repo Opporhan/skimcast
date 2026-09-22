@@ -1,60 +1,64 @@
 :root {
-  --bg: #fafafa;
-  --bg-elevated: #fff;
-  --text: #1a1a1a;
-  --text-muted: #666;
-  --border: #d0d0d5;
-  --accent: #5e54e0;
-  --accent-bg: #ece9fc;
-  --hover-bg: #f2f2f5;
-  --mark-bg: #ffe08a;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #17171c; --bg-elevated: #202027; --text: #eceef3; --text-muted: #9a9aa6;
-    --border: #34343d; --accent: #8f86ff; --accent-bg: #2a2740; --hover-bg: #24242c; --mark-bg: #6b5c1e;
-  }
+  --bg: #fff;
+  --bg-subtle: #f7f7f8;
+  --text: #18181b;
+  --text-muted: #71717a;
+  --border: #e4e4e7;
+  --accent: #5b4fe0;
+  --accent-soft: #f1effc;
+  --mark: #fde68a;
 }
 :root[data-theme="dark"] {
-  --bg: #17171c; --bg-elevated: #202027; --text: #eceef3; --text-muted: #9a9aa6;
-  --border: #34343d; --accent: #8f86ff; --accent-bg: #2a2740; --hover-bg: #24242c; --mark-bg: #6b5c1e;
+  --bg: #0f0f12; --bg-subtle: #1a1a1f; --text: #f4f4f5; --text-muted: #a1a1aa; --border: #2b2b31;
+  --accent: #9d8cff; --accent-soft: #221f38; --mark: #6b5c1e;
 }
 
+* { box-sizing: border-box; }
 body {
   margin: 0;
   font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: var(--text);
   background: var(--bg);
 }
-#app { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
-.header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
-.back { display: inline-block; margin-bottom: 8px; color: var(--accent); text-decoration: none; font-size: 13px; }
-.back:hover { text-decoration: underline; }
+#app { max-width: 680px; margin: 0 auto; padding: 40px 24px 80px; }
+.header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 20px; }
+.back { display: inline-block; margin-bottom: 8px; color: var(--text-muted); text-decoration: none; font-size: 13px; }
+.back:hover { color: var(--accent); }
 .theme-btn {
-  border: 1px solid var(--border); border-radius: 6px; background: var(--bg-elevated); color: var(--text);
-  font-size: 15px; padding: 4px 8px; cursor: pointer; line-height: 1;
+  border: 1px solid var(--border); border-radius: 7px; background: transparent; color: var(--text);
+  font-size: 13px; padding: 4px 7px; cursor: pointer; line-height: 1;
 }
-h1 { font-size: 22px; margin: 0; }
+.theme-btn:hover { background: var(--bg-subtle); }
+h1 { font-size: 21px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
 
-.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .controls input, .controls select {
-  padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
-  background: var(--bg-elevated); color: var(--text);
+  padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px;
+  background: var(--bg); color: var(--text);
 }
-#search { flex: 1 1 100%; box-sizing: border-box; }
+.controls input:focus, .controls select:focus { outline: none; border-color: var(--accent); }
+#search { flex: 1 1 100%; }
 .controls select { flex: 1; }
 button {
-  padding: 8px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elevated);
+  padding: 8px 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
   color: var(--text); font-size: 13px; cursor: pointer; white-space: nowrap;
 }
-button:hover { background: var(--hover-bg); }
-.toggle-btn.active { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+button:hover { background: var(--bg-subtle); }
+.toggle-btn.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
-.hint { color: var(--text-muted); font-size: 14px; font-style: italic; }
+.folders { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+.folder-tab {
+  padding: 6px 12px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg);
+  color: var(--text-muted); font-size: 13px; cursor: pointer;
+}
+.folder-tab:hover { background: var(--bg-subtle); }
+.folder-tab.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+.hint { color: var(--text-muted); font-size: 14px; }
 
 .row {
-  display: flex; justify-content: space-between; gap: 10px;
-  padding: 12px 14px; border-radius: 8px; background: var(--bg-elevated);
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+  padding: 14px; border-radius: 10px; background: var(--bg);
   border: 1px solid var(--border); margin-bottom: 8px;
 }
 .row-main { flex: 1; min-width: 0; }
@@ -62,23 +66,17 @@ button:hover { background: var(--hover-bg); }
 .row .title:hover { color: var(--accent); }
 .row-meta { color: var(--text-muted); font-size: 12px; margin-top: 3px; }
 .row .snippet { margin-top: 6px; font-size: 13px; color: var(--text-muted); }
-.row .snippet mark { background: var(--mark-bg); border-radius: 2px; color: var(--text); }
+.row .snippet mark { background: var(--mark); border-radius: 2px; color: var(--text); }
 
-.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
-.chip {
-  font-size: 11px; background: var(--accent-bg); color: var(--accent); border-radius: 10px;
-  padding: 2px 8px; display: inline-flex; align-items: center; gap: 4px;
-}
-.chip-x { cursor: pointer; opacity: .7; }
-.chip-x:hover { opacity: 1; }
-.tag-input {
-  font-size: 11px; border: 1px dashed var(--border); border-radius: 10px; padding: 2px 8px;
-  background: transparent; color: var(--text-muted); width: 90px;
+.folder-select {
+  margin-top: 8px; font-size: 12px; padding: 4px 8px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--bg-subtle); color: var(--text-muted);
 }
 
-.row-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
-.row-actions button { font-size: 12px; padding: 5px 10px; }
-.row-actions .pin { font-size: 14px; }
-.row-actions .delete:hover { background: #fdecea; border-color: #e0b4ad; color: #c0392b; }
+.row-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; align-items: flex-end; }
+.row-actions button { font-size: 12px; padding: 5px 10px; border: none; background: none; color: var(--text-muted); }
+.row-actions button:hover { color: var(--text); }
+.row-actions .pin.pinned { color: var(--accent); }
+.row-actions .delete:hover { color: #c0392b; }
 
 .fav-row .snippet { color: var(--text); font-size: 14px; }

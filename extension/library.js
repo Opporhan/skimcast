@@ -1,6 +1,6 @@
 // skimcast (uzantı): library.js — arşivlenmiş tüm transcript'lerin listesi, aralarında tam metin arama,
-// kişiselleştirme (etiket, not, sabitleme, sıralama) ve tüm videolardaki favori (yıldızlanmış) anların
-// tek bir yerde toplandığı "Favoriler" görünümü.
+// klasörlere ayırma (ör. "Yapay Zeka", "Felsefe"), sabitleme, sıralama ve tüm videolardaki favori
+// (yıldızlanmış) anların tek bir yerde toplandığı "Favoriler" görünümü.
 
 function t(key) { return chrome.i18n.getMessage(key) || key; }
 
@@ -10,6 +10,7 @@ function escapeHtml(s) {
 
 const archiveKey = (id) => `skimcastArchive:${id}`;
 const ARCHIVE_INDEX_KEY = "skimcastArchiveIndex";
+const NO_FOLDER = ""; // klasörsüz ("Genel")
 
 function relativeDate(ts) {
   const days = Math.floor((Date.now() - ts) / 86400000);
@@ -30,7 +31,7 @@ async function updateEntry(id, patch) {
   if (!entry) return null;
   const updated = { ...entry, ...patch };
   const index = await getIndex();
-  const nextIndex = index.map((e) => (e.id === id ? { ...e, tags: updated.tags || [], pinned: !!updated.pinned } : e));
+  const nextIndex = index.map((e) => (e.id === id ? { ...e, folder: updated.folder || NO_FOLDER, pinned: !!updated.pinned } : e));
   await chrome.storage.local.set({ [fullKey]: updated, [ARCHIVE_INDEX_KEY]: nextIndex });
   return updated;
 }
@@ -47,28 +48,31 @@ function sortIndex(index, sortBy) {
     if (sortBy === "oldest") return a.ts - b.ts;
     return b.ts - a.ts; // newest (varsayılan)
   });
-  // sabitlenenler her zaman en üstte, kendi aralarında seçili sıralamayı korur
-  return [...sorted.filter((e) => e.pinned), ...sorted.filter((e) => !e.pinned)];
+  return [...sorted.filter((e) => e.pinned), ...sorted.filter((e) => !e.pinned)]; // sabitlenenler üstte
 }
 
-function allTags(index) {
-  return [...new Set(index.flatMap((e) => e.tags || []))].sort();
+function allFolders(index) {
+  return [...new Set(index.map((e) => e.folder).filter(Boolean))].sort();
 }
 
-function entryRowHtml(e) {
+function folderSelectHtml(e, folders) {
+  const options = [`<option value="${NO_FOLDER}">${escapeHtml(t("no_folder"))}</option>`,
+    ...folders.map((f) => `<option value="${escapeHtml(f)}"${f === e.folder ? " selected" : ""}>${escapeHtml(f)}</option>`),
+    `<option value="__new__">${escapeHtml(t("new_folder_option"))}</option>`];
+  return `<select class="folder-select" data-id="${escapeHtml(e.id)}">${options.join("")}</select>`;
+}
+
+function entryRowHtml(e, folders) {
   const metaLine = [e.method, e.duration].filter(Boolean).join(" · ");
-  const tagsHtml = (e.tags || []).map((tag) =>
-    `<span class="chip" data-tag="${escapeHtml(tag)}" data-id="${escapeHtml(e.id)}">${escapeHtml(tag)} <span class="chip-x" data-remove-tag="${escapeHtml(tag)}" data-id="${escapeHtml(e.id)}">×</span></span>`
-  ).join("");
   return `
     <div class="row" data-id="${escapeHtml(e.id)}">
       <div class="row-main">
-        <a class="title" href="viewer.html?id=${encodeURIComponent(e.id)}">${e.pinned ? "📌 " : ""}${escapeHtml(e.title || "(başlıksız)")}</a>
+        <a class="title" href="viewer.html?id=${encodeURIComponent(e.id)}">${escapeHtml(e.title || "(başlıksız)")}</a>
         <div class="row-meta">${escapeHtml(metaLine)} · ${escapeHtml(relativeDate(e.ts))}</div>
-        <div class="tags">${tagsHtml}<input class="tag-input" data-id="${escapeHtml(e.id)}" placeholder="${escapeHtml(t("add_tag_placeholder"))}"></div>
+        ${folderSelectHtml(e, folders)}
       </div>
       <div class="row-actions">
-        <button class="pin" data-id="${escapeHtml(e.id)}" title="${escapeHtml(t("pin_hint"))}">${e.pinned ? "📌" : "📍"}</button>
+        <button class="pin${e.pinned ? " pinned" : ""}" data-id="${escapeHtml(e.id)}" title="${escapeHtml(t("pin_hint"))}">📌</button>
         <button class="delete" data-id="${escapeHtml(e.id)}">${t("library_delete")}</button>
       </div>
     </div>`;
@@ -96,7 +100,6 @@ async function searchArchive(query, index) {
   return results;
 }
 
-// Tüm videolardaki yıldızlanmış (favori) anları tek listede toplar.
 async function getAllHighlights(index) {
   const keys = index.map((e) => archiveKey(e.id));
   const entries = await chrome.storage.local.get(keys);
@@ -138,32 +141,37 @@ async function init() {
         <option value="oldest">${t("sort_oldest")}</option>
         <option value="title">${t("sort_title")}</option>
       </select>
-      <select id="tagFilter"><option value="">${t("all_tags")}</option></select>
       <button id="favViewBtn" class="toggle-btn">${t("fav_view_btn")}</button>
     </div>
+    <div id="folders" class="folders"></div>
     <div id="list"></div>
   `;
   mountThemeButton(document.getElementById("themeBtn"));
 
   const listEl = document.getElementById("list");
+  const foldersEl = document.getElementById("folders");
   const searchInput = document.getElementById("search");
   const sortSelect = document.getElementById("sortBy");
-  const tagSelect = document.getElementById("tagFilter");
   const favViewBtn = document.getElementById("favViewBtn");
   let index = await getIndex();
   let favView = false;
+  let activeFolder = null; // null = Tümü
 
-  function fillTagFilter() {
-    const current = tagSelect.value;
-    tagSelect.innerHTML = `<option value="">${t("all_tags")}</option>` +
-      allTags(index).map((tag) => `<option value="${escapeHtml(tag)}">${escapeHtml(tag)}</option>`).join("");
-    tagSelect.value = current;
+  function renderFolderTabs() {
+    const folders = allFolders(index);
+    const tabs = [{ name: null, label: t("all_folders") }, ...folders.map((f) => ({ name: f, label: f })),
+      { name: NO_FOLDER, label: t("no_folder") }];
+    foldersEl.innerHTML = tabs.map((f) =>
+      `<button class="folder-tab${activeFolder === f.name ? " active" : ""}" data-folder="${escapeHtml(f.name ?? "")}" data-all="${f.name === null ? "1" : "0"}">${escapeHtml(f.label)}</button>`
+    ).join("") + `<input id="newFolder" class="folder-tab" placeholder="${escapeHtml(t("new_folder_placeholder"))}">`;
+    foldersEl.hidden = favView;
   }
 
   function renderList() {
-    const filtered = tagSelect.value ? index.filter((e) => (e.tags || []).includes(tagSelect.value)) : index;
+    const filtered = activeFolder === null ? index : index.filter((e) => (e.folder || NO_FOLDER) === activeFolder);
     const sorted = sortIndex(filtered, sortSelect.value);
-    listEl.innerHTML = sorted.length ? sorted.map(entryRowHtml).join("") : `<p class="hint">${t("library_empty")}</p>`;
+    const folders = allFolders(index);
+    listEl.innerHTML = sorted.length ? sorted.map((e) => entryRowHtml(e, folders)).join("") : `<p class="hint">${t("library_empty")}</p>`;
   }
 
   async function renderSearch(query) {
@@ -187,22 +195,48 @@ async function init() {
   }
 
   function render() {
+    renderFolderTabs();
     if (favView) { renderFavorites(); return; }
     searchInput.value.trim() ? renderSearch(searchInput.value) : renderList();
   }
 
-  fillTagFilter();
   render();
 
   searchInput.addEventListener("input", () => { if (!favView) render(); });
   sortSelect.addEventListener("change", render);
-  tagSelect.addEventListener("change", render);
   favViewBtn.addEventListener("click", () => {
     favView = !favView;
     favViewBtn.classList.toggle("active", favView);
     searchInput.disabled = favView;
     sortSelect.disabled = favView;
-    tagSelect.disabled = favView;
+    render();
+  });
+
+  foldersEl.addEventListener("click", (e) => {
+    const tab = e.target.closest(".folder-tab");
+    if (!tab) return;
+    activeFolder = tab.dataset.all === "1" ? null : tab.dataset.folder;
+    render();
+  });
+  foldersEl.addEventListener("keydown", (e) => {
+    if (e.target.id !== "newFolder" || e.key !== "Enter") return;
+    const name = e.target.value.trim();
+    if (!name) return;
+    activeFolder = name; // yeni klasör boş başlar, sadece görünüme geç; ilk video atanınca listede kalıcılaşır
+    e.target.value = "";
+    render();
+  });
+
+  listEl.addEventListener("change", async (e) => {
+    const select = e.target.closest(".folder-select");
+    if (!select) return;
+    let folder = select.value;
+    if (folder === "__new__") {
+      folder = (prompt(t("new_folder_prompt")) || "").trim();
+      if (!folder) { render(); return; }
+    }
+    await updateEntry(select.dataset.id, { folder });
+    index = await getIndex();
     render();
   });
 
@@ -211,25 +245,14 @@ async function init() {
     if (del) {
       await removeEntry(del.dataset.id);
       index = await getIndex();
-      fillTagFilter();
       render();
       return;
     }
     const pin = e.target.closest(".pin");
     if (pin) {
-      const entry = index.find((x) => x.id === pin.dataset.id);
-      await updateEntry(pin.dataset.id, { pinned: !entry?.pinned });
+      const entryMeta = index.find((x) => x.id === pin.dataset.id);
+      await updateEntry(pin.dataset.id, { pinned: !entryMeta?.pinned });
       index = await getIndex();
-      render();
-      return;
-    }
-    const removeTag = e.target.closest("[data-remove-tag]");
-    if (removeTag) {
-      const entry = index.find((x) => x.id === removeTag.dataset.id);
-      const tags = (entry?.tags || []).filter((tg) => tg !== removeTag.dataset.removeTag);
-      await updateEntry(removeTag.dataset.id, { tags });
-      index = await getIndex();
-      fillTagFilter();
       render();
       return;
     }
@@ -243,19 +266,6 @@ async function init() {
       }
       render();
     }
-  });
-
-  listEl.addEventListener("keydown", async (e) => {
-    const input = e.target.closest(".tag-input");
-    if (!input || e.key !== "Enter") return;
-    const tag = input.value.trim();
-    if (!tag) return;
-    const entry = index.find((x) => x.id === input.dataset.id);
-    const tags = [...new Set([...(entry?.tags || []), tag])];
-    await updateEntry(input.dataset.id, { tags });
-    index = await getIndex();
-    fillTagFilter();
-    render();
   });
 }
 

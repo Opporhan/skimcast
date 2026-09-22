@@ -109,9 +109,19 @@ async function init() {
     </div>` : ""}
     <p id="noMatches" class="hint" hidden>${t("no_matches")}</p>
     <div class="content" id="content"></div>
+    <div id="toast" class="toast"></div>
   `;
 
   mountThemeButton(document.getElementById("themeBtn"));
+
+  const toastEl = document.getElementById("toast");
+  let toastTimer = null;
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+  }
 
   const contentEl = document.getElementById("content");
   // state.texts[i]: o an EKRANDA GÖRÜNEN metin (orijinal ya da çevrilmiş) — kopyala/indir/favori/arama
@@ -134,11 +144,14 @@ async function init() {
       starBtn.classList.add("starred");
       const url = jumpUrl(meta, b.sec);
       const quote = `"${state.texts[i]}" — ${meta.title}${b.sec != null ? ` [${fmtTime(b.sec)}]` : ""}${url ? `\n${url}` : ""}`;
-      try { await navigator.clipboard.writeText(quote); } catch { /* pano izni yoksa sessizce geç */ }
+      let copied = true;
+      try { await navigator.clipboard.writeText(quote); } catch { copied = false; }
+      showToast(copied ? t("fav_added_copied") : t("fav_added"));
     } else {
       entry.highlights.splice(idx, 1);
       starBtn.textContent = "☆";
       starBtn.classList.remove("starred");
+      showToast(t("fav_removed"));
     }
     await persistHighlights();
   }

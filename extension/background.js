@@ -286,7 +286,7 @@ async function saveToArchive(id, url, meta, blocks) {
   const { [ARCHIVE_INDEX_KEY]: index = [] } = await chrome.storage.local.get(ARCHIVE_INDEX_KEY);
   const nextIndex = [
     { id, title: meta.title, method: meta.method, duration: meta.duration, ts: entry.ts,
-      tags: prev?.tags || [], pinned: prev?.pinned || false },
+      folder: prev?.folder || "", pinned: prev?.pinned || false },
     ...index.filter((e) => e.id !== id),
   ];
   await chrome.storage.local.set({ [prevKey]: entry, [ARCHIVE_INDEX_KEY]: nextIndex });
