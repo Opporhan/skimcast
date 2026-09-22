@@ -247,7 +247,7 @@ ${text}
 --- TRANSCRIPT END ---`;
 }
 
-async function callGemini(apiKey, prompt) {
+async function callGeminiOnce(apiKey, prompt) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   let res;
   try {
@@ -261,7 +261,9 @@ async function callGemini(apiKey, prompt) {
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    throw new SkimError(`Gemini hata döndürdü (${res.status}): ${data?.error?.message || "bilinmeyen hata"}. API anahtarını kontrol et.`);
+    const err = new SkimError(`Gemini hata döndürdü (${res.status}): ${data?.error?.message || "bilinmeyen hata"}.`);
+    err.status = res.status;
+    throw err;
   }
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
   if (!text.trim()) {
@@ -269,6 +271,23 @@ async function callGemini(apiKey, prompt) {
     throw new SkimError(`Gemini boş yanıt döndürdü${reason ? ` (${reason})` : ""}.`);
   }
   return text.trim();
+}
+
+// Ücretsiz katmanın dakikalık hız sınırı (429) çok kısa süreli oluyor (Google genelde <1 sn bekle diyor);
+// kullanıcıya çiğ hata göstermeden birkaç kez, artan gecikmeyle tekrar dene.
+async function callGemini(apiKey, prompt) {
+  const delays = [1000, 3000, 8000];
+  for (let i = 0; ; i++) {
+    try {
+      return await callGeminiOnce(apiKey, prompt);
+    } catch (e) {
+      if (e.status !== 429 || i >= delays.length) {
+        if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
+        throw e;
+      }
+      await new Promise((r) => setTimeout(r, delays[i]));
+    }
+  }
 }
 
 async function getApiKey() {
