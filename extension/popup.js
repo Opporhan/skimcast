@@ -34,6 +34,7 @@ async function run() {
 
 async function init() {
   applyI18n();
+  mountThemeButton(document.getElementById("themeBtn"));
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.url && /^https?:\/\//.test(tab.url)) document.getElementById("url").value = tab.url;

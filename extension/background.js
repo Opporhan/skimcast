@@ -277,15 +277,19 @@ const ARCHIVE_INDEX_KEY = "skimcastArchiveIndex";
 
 // Arşiv iki parçada tutulur: her kayıt kendi anahtarında (tam metin, olası büyük), ve hafif bir dizin
 // (skimcastArchiveIndex) sadece kütüphane sayfasını hızlıca doldurmak için. Aynı video/link tekrar
-// getirilirse (stableId aynı çıkar) kayıt güncellenir, kopya oluşmaz.
+// getirilirse (stableId aynı çıkar) kayıt GÜNCELLENİR — ama kullanıcının o kayda eklediği şeyler
+// (favoriler, etiketler, not, sabitleme, çeviriler) korunur, sadece transcript/meta tazelenir.
 async function saveToArchive(id, url, meta, blocks) {
-  const entry = { id, url, meta, blocks, ts: Date.now() };
+  const prevKey = archiveKey(id);
+  const { [prevKey]: prev } = await chrome.storage.local.get(prevKey);
+  const entry = { ...prev, id, url, meta, blocks, ts: Date.now() };
   const { [ARCHIVE_INDEX_KEY]: index = [] } = await chrome.storage.local.get(ARCHIVE_INDEX_KEY);
   const nextIndex = [
-    { id, title: meta.title, method: meta.method, duration: meta.duration, ts: entry.ts },
+    { id, title: meta.title, method: meta.method, duration: meta.duration, ts: entry.ts,
+      tags: prev?.tags || [], pinned: prev?.pinned || false },
     ...index.filter((e) => e.id !== id),
   ];
-  await chrome.storage.local.set({ [archiveKey(id)]: entry, [ARCHIVE_INDEX_KEY]: nextIndex });
+  await chrome.storage.local.set({ [prevKey]: entry, [ARCHIVE_INDEX_KEY]: nextIndex });
   return entry;
 }
 

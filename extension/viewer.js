@@ -1,9 +1,6 @@
 // skimcast (uzantı): viewer.js — background.js'in arşive kaydettiği transcript'i gösterir. Özet üretmez;
-// zaman damgalı transcript'i arama, tıkla-git, olası reklam tespiti, alıntı/kopyala/indir ve (cihaz
-// üzerinde, ücretsiz/kotasız) çeviri katmanlarıyla sunar. Çeviri hariç hiçbir dış API'ye gitmez; çeviri
-// de Chrome/Edge'in yerleşik Translator/LanguageDetector API'siyle tamamen cihazda çalışır — bir bulut
-// LLM'e istek atmaz (bkz. proje kararı: özetleme bir gece süren kota/güvenilirlik sorunları yüzünden
-// terk edildi, aynı riski çeviriye de bulaştırmıyoruz).
+// zaman damgalı transcript'i arama, tıkla-git, olası reklam tespiti, favori/alıntı, kopyala/indir ve
+// (cihaz üzerinde, ücretsiz/kotasız) çeviri katmanlarıyla sunar. Çeviri hariç hiçbir dış API'ye gitmez.
 
 function t(key) { return chrome.i18n.getMessage(key) || key; }
 
@@ -19,9 +16,8 @@ function fmtTime(sec) {
 }
 
 // Kaba, isteğe bağlı bir sezgisel: transcript metninde sponsor/reklam okuması gibi görünen kalıpları
-// arar. Kesin değildir (bir topluluk veritabanına değil, tek bir metne dayanıyor) — bu yüzden arayüzde
-// "olası reklam" diye etiketleniyor, kesin bir iddia gibi sunulmuyor. Her zaman ORİJİNAL metne bakılır
-// (çeviri sonrası tekrar çalıştırılmaz) çünkü kalıp listesi orijinal dillere göre ayarlı.
+// arar. Kesin değildir — bu yüzden arayüzde "olası reklam" diye etiketleniyor. Her zaman ORİJİNAL metne
+// bakılır (çeviri sonrası tekrar çalıştırılmaz) çünkü kalıp listesi orijinal dillere göre ayarlı.
 const AD_PATTERNS = [
   /\bsponsor(lu|luk|luğunda|ed)?\b/i,
   /(bu (video|bölüm)\w*|this (video|episode))\s+.{0,40}(sponsorluğunda|tarafından sunul\w*|destekle\w*|is sponsored by|brought to you by)/i,
@@ -62,8 +58,6 @@ const TRANSLATE_LANGS = [
   { code: "ru", label: "Русский" },
 ];
 
-// Transcript'in kaynak dilini kullanıcıya sormadan tespit eder (LanguageDetector, indirme gerektirmez).
-// Translator API "auto" kaynak dil kabul etmiyor, çift dilli (kaynak+hedef) bir çift istiyor.
 async function detectSourceLanguage(sampleText) {
   if (typeof LanguageDetector === "undefined") return null;
   try {
@@ -86,18 +80,23 @@ async function init() {
   if (!entry) { app.innerHTML = `<p class="error">${t("error_result_not_found")}</p>`; return; }
 
   const { meta, blocks } = entry;
+  entry.highlights = entry.highlights || []; // {sec, text, ts}[] — favorilenen anlar
   document.title = meta.title || "skimcast";
   const metaLine = [meta.title, meta.duration, meta.method].filter(Boolean).join(" · ");
   const canTranslate = typeof Translator !== "undefined";
 
   app.innerHTML = `
     <header>
-      <a class="back" href="library.html">${t("library_link")}</a>
+      <div class="header-top">
+        <a class="back" href="library.html">${t("library_link")}</a>
+        <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
+      </div>
       <h1>${escapeHtml(meta.title || t("popup_title"))}</h1>
       <div class="meta">${escapeHtml(metaLine)}</div>
     </header>
     <div class="toolbar">
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
+      <button id="favOnlyBtn" class="toggle-btn">${t("fav_only_btn")}</button>
       <button id="copyBtn">${t("copy_btn")}</button>
       <button id="downloadBtn">${t("download_btn")}</button>
     </div>
@@ -112,10 +111,37 @@ async function init() {
     <div class="content" id="content"></div>
   `;
 
+  mountThemeButton(document.getElementById("themeBtn"));
+
   const contentEl = document.getElementById("content");
-  // state.texts[i]: o an EKRANDA GÖRÜNEN metin (orijinal ya da çevrilmiş) — kopyala/indir/alıntı/arama
+  // state.texts[i]: o an EKRANDA GÖRÜNEN metin (orijinal ya da çevrilmiş) — kopyala/indir/favori/arama
   // hep buradan okur, blocks[i].text her zaman orijinal kalır (geri dönebilmek için).
   const state = { texts: blocks.map((b) => b.text), lang: null };
+  const highlightKey = (i) => (blocks[i].sec != null ? `sec:${blocks[i].sec}` : `i:${i}`);
+  const isHighlighted = (i) => entry.highlights.some((h) => h.key === highlightKey(i));
+
+  async function persistHighlights() {
+    await chrome.storage.local.set({ [key]: entry });
+  }
+
+  async function toggleHighlight(i, starBtn) {
+    const hKey = highlightKey(i);
+    const idx = entry.highlights.findIndex((h) => h.key === hKey);
+    if (idx === -1) {
+      const b = blocks[i];
+      entry.highlights.push({ key: hKey, sec: b.sec, text: state.texts[i], title: meta.title, url: meta.linkPrefix, ts: Date.now() });
+      starBtn.textContent = "★";
+      starBtn.classList.add("starred");
+      const url = jumpUrl(meta, b.sec);
+      const quote = `"${state.texts[i]}" — ${meta.title}${b.sec != null ? ` [${fmtTime(b.sec)}]` : ""}${url ? `\n${url}` : ""}`;
+      try { await navigator.clipboard.writeText(quote); } catch { /* pano izni yoksa sessizce geç */ }
+    } else {
+      entry.highlights.splice(idx, 1);
+      starBtn.textContent = "☆";
+      starBtn.classList.remove("starred");
+    }
+    await persistHighlights();
+  }
 
   function currentFullText() {
     return blocks.map((b, i) => (b.sec != null ? `[${fmtTime(b.sec)}] ` : "") + state.texts[i]).join("\n");
@@ -125,6 +151,7 @@ async function init() {
     const row = document.createElement("div");
     row.className = "block";
     row.dataset.text = state.texts[i].toLocaleLowerCase("tr");
+    row.dataset.fav = isHighlighted(i) ? "1" : "0";
 
     if (b.sec != null) {
       const time = document.createElement(jumpUrl(meta, b.sec) ? "button" : "span");
@@ -157,51 +184,58 @@ async function init() {
       }
     }
 
-    const quoteBtn = document.createElement("button");
-    quoteBtn.className = "quote-btn";
-    quoteBtn.textContent = t("quote_btn");
-    quoteBtn.addEventListener("click", async () => {
-      const url = jumpUrl(meta, b.sec);
-      const quote = `"${state.texts[i]}" — ${meta.title}${b.sec != null ? ` [${fmtTime(b.sec)}]` : ""}${url ? `\n${url}` : ""}`;
-      try {
-        await navigator.clipboard.writeText(quote);
-        flashLabel(quoteBtn, t("copied"));
-      } catch { /* pano izni yoksa sessizce geç */ }
+    const starBtn = document.createElement("button");
+    starBtn.className = "star-btn" + (isHighlighted(i) ? " starred" : "");
+    starBtn.title = t("fav_hint");
+    starBtn.textContent = isHighlighted(i) ? "★" : "☆";
+    starBtn.addEventListener("click", async () => {
+      await toggleHighlight(i, starBtn);
+      row.dataset.fav = isHighlighted(i) ? "1" : "0";
+      if (favOnlyOn) applyFilters();
     });
-    row.appendChild(quoteBtn);
+    row.appendChild(starBtn);
 
     contentEl.appendChild(row);
   });
 
-  // ------------------------------------------------------------ arama (anlık filtre + vurgulama)
+  // ------------------------------------------------------------ arama + favori filtresi
   const searchInput = document.getElementById("search");
+  const favOnlyBtn = document.getElementById("favOnlyBtn");
   const noMatches = document.getElementById("noMatches");
   const rows = [...contentEl.querySelectorAll(".block")];
+  let favOnlyOn = false;
 
-  function applySearch(qRaw) {
-    const q = qRaw.trim().toLocaleLowerCase("tr");
+  function applyFilters() {
+    const q = searchInput.value.trim().toLocaleLowerCase("tr");
     let anyVisible = false;
     for (const row of rows) {
-      const match = !q || row.dataset.text.includes(q);
-      row.hidden = !match;
-      if (match) anyVisible = true;
+      const matchesSearch = !q || row.dataset.text.includes(q);
+      const matchesFav = !favOnlyOn || row.dataset.fav === "1";
+      const visible = matchesSearch && matchesFav;
+      row.hidden = !visible;
+      if (visible) anyVisible = true;
       const textSpan = row.querySelector(".text");
       if (!q) {
-        textSpan.textContent = textSpan.textContent; // vurgulamayı temizle (zaten düz metin)
-      } else if (match) {
+        textSpan.textContent = textSpan.textContent; // vurgulamayı temizle
+      } else if (visible) {
         const idx = row.dataset.text.indexOf(q);
         const raw = textSpan.textContent;
         textSpan.innerHTML = `${escapeHtml(raw.slice(0, idx))}<mark>${escapeHtml(raw.slice(idx, idx + q.length))}</mark>${escapeHtml(raw.slice(idx + q.length))}`;
       }
     }
-    noMatches.hidden = !q || anyVisible;
+    noMatches.hidden = (!q && !favOnlyOn) || anyVisible;
   }
-  searchInput.addEventListener("input", () => applySearch(searchInput.value));
+  searchInput.addEventListener("input", applyFilters);
+  favOnlyBtn.addEventListener("click", () => {
+    favOnlyOn = !favOnlyOn;
+    favOnlyBtn.classList.toggle("active", favOnlyOn);
+    applyFilters();
+  });
 
   const initialQuery = new URLSearchParams(location.search).get("q");
   if (initialQuery) {
     searchInput.value = initialQuery;
-    applySearch(initialQuery);
+    applyFilters();
     contentEl.querySelector(".block:not([hidden])")?.scrollIntoView({ block: "center" });
   }
 
@@ -249,7 +283,7 @@ async function init() {
       row.dataset.text = texts[i].toLocaleLowerCase("tr");
       row.querySelector(".text").textContent = texts[i];
     });
-    applySearch(searchInput.value);
+    applyFilters();
     originalBtn.hidden = lang === null;
   }
 
