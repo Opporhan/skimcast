@@ -530,18 +530,30 @@ async function init() {
           });
         },
       });
-      const translated = [];
-      for (let i = 0; i < blocks.length; i++) {
-        statusEl.textContent = `${t("translate_progress")} ${i + 1}/${blocks.length}`;
-        // Tek bir cümlede çeviri motoru hata verirse (nadiren olabiliyor) tüm işlemi iptal etmek yerine
-        // o cümleyi orijinal haliyle bırakıp devam ediyoruz — bir hata yüzünden saatlerce süren bir
-        // çeviriyi baştan kaybetmek istemiyoruz.
-        try {
-          translated.push((await translator.translate(blocks[i].text)) || blocks[i].text);
-        } catch {
-          translated.push(blocks[i].text);
+      // Önceki sürüm blokları TEK TEK sırayla çeviriyordu — uzun videolarda bekleme uzuyordu. İki
+      // iyileştirme: (1) birden fazla bloğu AYNI ANDA çeviriyoruz (CONCURRENCY kadar), (2) her blok
+      // biter bitmez ekrana anında yansıtıyoruz — kullanıcı en baştan itibaren okumaya başlayabiliyor,
+      // geri kalanı arka planda tamamlanıyor, sonunu beklemesi gerekmiyor.
+      const CONCURRENCY = 4;
+      const translated = new Array(blocks.length);
+      let completed = 0, nextIndex = 0;
+      async function worker() {
+        while (nextIndex < blocks.length) {
+          const i = nextIndex++;
+          try {
+            translated[i] = (await translator.translate(blocks[i].text)) || blocks[i].text;
+          } catch {
+            // Tek bir cümlede çeviri motoru hata verirse (nadiren olabiliyor) tüm işlemi iptal etmek
+            // yerine o cümleyi orijinal haliyle bırakıp devam ediyoruz.
+            translated[i] = blocks[i].text;
+          }
+          completed++;
+          statusEl.textContent = `${t("translate_progress")} ${completed}/${blocks.length}`;
+          rows[i].querySelector(".text").textContent = translated[i];
+          rows[i].dataset.text = translated[i].toLocaleLowerCase("tr");
         }
       }
+      await Promise.all(Array.from({ length: CONCURRENCY }, worker));
       applyTexts(translated, target);
       statusEl.textContent = t("translate_done");
       entry.translations = { ...(entry.translations || {}), [target]: translated };
