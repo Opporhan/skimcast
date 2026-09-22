@@ -221,16 +221,15 @@ function buildTranscriptText(t) {
 // bir modele istek atmak şart. Önce Gemini kullanıldı ama en yeni modelin (gemini-3.6-flash) ücretsiz
 // katmanı günde yalnızca 20 istekle sınırlıydı; Groq'un ücretsiz katmanı (kredi kartı istemez,
 // console.groq.com) çok daha cömert, o yüzden buraya geçildi.
-// Groq'un model adları zaman zaman değişiyor/emekliye ayrılıyor (birini geçersiz anahtarla test etmek
-// işe yaramıyor: Groq önce anahtarı kontrol ediyor, model adını hiç bakmıyor). Bu yüzden tahmin etmek
-// yerine sırayla dene: biri "model does not exist" derse bir sonrakine geç.
+// Groq'un model adları zaman zaman değişiyor/emekliye ayrılıyor, ayrıca bazı modellere hesap seviyesine
+// göre erişim kısıtlı olabiliyor (geçersiz anahtarla test etmek işe yaramıyor: Groq önce anahtarı
+// kontrol ediyor, model adına hiç bakmıyor). Liste console.groq.com/docs/models'teki güncel üretim
+// modellerinden alındı; küçük/hızlı olan önce (erişim kısıtlamasına daha az takılıyor), sırayla dener.
 const GROQ_MODELS = [
-  "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
-  "llama-3.1-70b-versatile",
-  "llama3-70b-8192",
-  "llama3-8b-8192",
-  "gemma2-9b-it",
+  "openai/gpt-oss-20b",
+  "llama-3.3-70b-versatile",
+  "openai/gpt-oss-120b",
 ];
 
 function reliabilityNote(method) {
@@ -301,8 +300,16 @@ async function callGroqWithRetry(apiKey, prompt, model) {
   }
 }
 
-// GROQ_MODELS'i sırayla dener: "model bulunamadı/erişimin yok" (404) hatası alırsa bir sonraki
-// modele geçer, böylece Groq bir modeli emekliye ayırırsa uzantı elle düzeltmeden çalışmaya devam eder.
+// Groq, bir model yoksa/erişimin yoksa 404, emekliye ayrılmışsa 400 ("decommissioned") döndürüyor —
+// ikisi de "sıradaki modeli dene" demek. Kota/sunucu hataları (401/429/503) bu listeye girmez, direkt
+// fırlatılır (başka model denemek onları çözmez).
+function isModelUnavailable(e) {
+  if (e.status === 404) return true;
+  return e.status === 400 && /decommission|does not exist|no longer supported|not found/i.test(e.message);
+}
+
+// GROQ_MODELS'i sırayla dener: model kullanılamıyorsa bir sonrakine geçer, böylece Groq bir modeli
+// emekliye ayırırsa ya da erişimi kısıtlarsa uzantı elle düzeltmeden çalışmaya devam eder.
 async function callGroq(apiKey, prompt) {
   let lastErr;
   for (const model of GROQ_MODELS) {
@@ -310,11 +317,11 @@ async function callGroq(apiKey, prompt) {
       return await callGroqWithRetry(apiKey, prompt, model);
     } catch (e) {
       lastErr = e;
-      if (e.status !== 404) {
+      if (!isModelUnavailable(e)) {
         if (e.status === 401) e.message += " API anahtarını kontrol et.";
         throw e;
       }
-      // 404: bu model yok/erişimin yok, sıradakini dene
+      // sıradaki modeli dene
     }
   }
   throw lastErr;
