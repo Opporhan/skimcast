@@ -186,16 +186,24 @@ async function init() {
     await persistHighlights();
   }
 
-  // Tek bir favoriyi (yıldızlanmış an) bir klasöre atar — videonun kendisini taşımaktan farklı,
-  // sadece bu belirli anı ilgilendirir. FOLDERS_KEY/getFolders/openMoveToFolderModal aşağıda tanımlı
-  // (fonksiyon bildirimleri hoisted olduğu için burada, tanımdan önce çağırmak sorun değil).
+  // Bir satırı bir klasöre atar — yıldızlanmış olması ŞART DEĞİL: yıldızlama hızlı "beğendim + kopyala"
+  // içindir, dosyaya koymak ayrı, bilinçli bir organizasyon kararı. Kayıt yoksa burada oluşturuluyor
+  // (starred:false ile — sadece dosyalanmış, favori değil). FOLDERS_KEY/getFolders/openMoveToFolderModal
+  // aşağıda tanımlı (fonksiyon bildirimleri hoisted, burada tanımdan önce çağırmak sorun değil).
   // Yazma sonrası depodan TEKRAR OKUYUP doğruluyoruz — "taşındı" demek için gerçekten kaydedilmiş
   // olması gerekiyor, aksi halde sessizce yanlış bir onay vermiş oluruz.
-  async function assignHighlightFolder(hKey, folderName) {
-    entry.highlights = entry.highlights.map((h) => (h.key === hKey ? { ...h, folder: folderName } : h));
+  async function assignHighlightFolder(i, folderName) {
+    const hKey = highlightKey(i);
+    let h = entry.highlights.find((x) => x.key === hKey);
+    if (h) {
+      h.folder = folderName;
+    } else {
+      const b = blocks[i];
+      entry.highlights.push({ key: hKey, sec: b.sec, text: state.texts[i], title: meta.title, url: meta.linkPrefix, starred: false, folder: folderName, ts: Date.now() });
+    }
     await persistHighlights();
     const { [key]: saved } = await chrome.storage.local.get(key);
-    return saved?.highlights?.find((h) => h.key === hKey)?.folder === folderName;
+    return saved?.highlights?.find((x) => x.key === hKey)?.folder === folderName;
   }
 
   // includeTimestamps verilmezse ekrandaki o anki tercihi (showTimestamps) kullanır — kopyala böyle
@@ -250,8 +258,8 @@ async function init() {
     const currentHighlight = () => entry.highlights.find((h) => h.key === highlightKey(i));
     setFolderLabel(currentHighlight()?.folder);
     folderBtn.title = t("move_to_folder_title");
-    // Yıldızsız olsa bile bir klasöre kayıtlıysa görünür kalsın — taşımayı/çıkarmayı yönetebilesin.
-    folderBtn.hidden = !currentHighlight();
+    // Artık yıldızlanmış olması ŞART DEĞİL — her satırda görünüyor, doğrudan (yıldızlamadan) bir
+    // klasöre koyabilirsin. Yıldızlama ayrı, hızlı bir "beğendim + kopyala" eylemi olarak kalıyor.
     folderBtn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
       const result = await openMoveToFolderModal();
@@ -263,7 +271,7 @@ async function init() {
           await chrome.storage.local.set({ [FOLDERS_KEY]: existing });
         }
       }
-      const ok = await assignHighlightFolder(highlightKey(i), result.folder);
+      const ok = await assignHighlightFolder(i, result.folder);
       if (ok) {
         setFolderLabel(result.folder);
         showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
@@ -279,7 +287,6 @@ async function init() {
     starBtn.addEventListener("click", async () => {
       await toggleHighlight(i, starBtn);
       row.dataset.fav = isHighlighted(i) ? "1" : "0";
-      folderBtn.hidden = !currentHighlight(); // klasöre kayıtlıysa yıldızsız da görünür kalır
       if (favOnlyOn) applyFilters();
     });
     row.appendChild(starBtn);
