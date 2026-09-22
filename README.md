@@ -31,6 +31,26 @@ It tries the fastest source first and falls back automatically:
 
 Speech-to-text runs **on your machine** and is only used when no ready-made transcript exists. It is slow on long audio — measured on an Apple M2: the small `tiny` model ≈ 8× faster than real time, the default `small` model noticeably slower but more accurate — and is installed on demand. The summary always says how the transcript was obtained, and warns when it's auto-generated.
 
+## Use it in Claude Desktop (no terminal, no VS Code)
+
+skimcast also ships an [MCP](https://modelcontextprotocol.io) server, so you can paste a link into the Claude desktop app and ask for a summary. Claude writes the summary itself — still no API key.
+
+1. Install Python 3.10+ if you don't have it, then on GitHub click **Code → Download ZIP** and unzip it somewhere permanent.
+2. In Claude Desktop open **Settings → Developer → Edit Config** and add (use the real path; on Windows use `python` instead of `python3`):
+
+```json
+{
+  "mcpServers": {
+    "skimcast": {
+      "command": "python3",
+      "args": ["/path/to/skimcast/skills/summarize/mcp_server.py"]
+    }
+  }
+}
+```
+
+3. Restart Claude Desktop. The first launch installs its dependencies (~1 min). Then just say: *"Summarize https://www.youtube.com/watch?v=…"*.
+
 ## Use the script on its own
 
 ```

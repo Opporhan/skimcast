@@ -56,11 +56,12 @@ def bootstrap(extra: tuple = ()) -> None:
             subprocess.run([sys.executable, "-m", "venv", str(VENV)], check=True)
         py = VENV / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
         req = Path(__file__).with_name("requirements.txt")
-        subprocess.run([str(py), "-m", "pip", "install", "-q", "--disable-pip-version-check", "-r", str(req), *extra], check=True)
+        subprocess.run([str(py), "-m", "pip", "install", "-q", "--disable-pip-version-check", "-r", str(req), *extra],
+                       check=True, stdout=sys.stderr)
     except (subprocess.CalledProcessError, OSError) as e:
         raise SkimError(f"Paket kurulumu başarısız ({e}). İnternet bağlantınızı kontrol edin.") from e
     os.environ["SKIMCAST_BOOTSTRAPPED"] = ";".join([*tried, tag])
-    os.execv(str(py), [str(py), str(Path(__file__).resolve()), *sys.argv[1:]])
+    os.execv(str(py), [str(py), str(Path(sys.argv[0]).resolve()), *sys.argv[1:]])  # başlatan betik (transcript.py ya da mcp_server.py)
 
 
 class SkimError(Exception):
@@ -408,6 +409,11 @@ def split_long(text: str, limit: int) -> list:
 
 def emit(t: Transcript, target: str, out: Path) -> None:
     """Transcript'i diske yazar, üst bilgi + (kısaysa) metni ya da parça listesini basar."""
+    print_result(*write_output(t, target, out))
+
+
+def write_output(t: Transcript, target: str, out: Path) -> tuple:
+    """Transcript'i diske yazar; (meta, metin) döndürür."""
     out.mkdir(parents=True, exist_ok=True)
     blocks = to_blocks(t.segments) if t.timestamps else [t.segments[0][1]]
     text = "\n".join(blocks)
@@ -429,7 +435,7 @@ def emit(t: Transcript, target: str, out: Path) -> None:
     meta = {"title": t.title, "source": target, "method": t.method, "duration": fmt_time(t.duration) if t.duration else "",
             "link_prefix": t.link_prefix, "chars": len(text), "parts": files}
     (out / "meta.json").write_text(json.dumps(meta, ensure_ascii=False), encoding="utf-8")
-    print_result(meta, text)
+    return meta, text
 
 
 def print_result(meta: dict, text: str) -> None:
@@ -444,6 +450,19 @@ def print_result(meta: dict, text: str) -> None:
     else:
         print("===")
         print(text)
+
+
+def load(target: str, langs: list, model: str, episode: int, fresh: bool = False) -> tuple:
+    """Önbelleğe bakar, yoksa transcript'i alıp yazar; (meta, metin) döndürür."""
+    vid = youtube_id(target)
+    key = f"{'yt:' + vid if vid else target}|{episode}|{','.join(langs)}|{model}"
+    out = Path(tempfile.gettempdir()) / "skimcast" / hashlib.sha1(key.encode()).hexdigest()[:12]
+    if not fresh and (out / "meta.json").exists() and (out / "transcript.txt").exists():
+        meta = json.loads((out / "meta.json").read_text(encoding="utf-8"))
+        if all(Path(f).exists() for f in meta["parts"]):  # geçici klasör temizlenmiş olabilir
+            note("(önbellekten)")
+            return meta, (out / "transcript.txt").read_text(encoding="utf-8")
+    return write_output(get_transcript(target, langs, model, episode), target, out)
 
 
 def main(argv=None) -> int:
@@ -465,17 +484,8 @@ def main(argv=None) -> int:
             print(f"HATA: {e}", file=sys.stderr)
             return 2
     langs = [x.strip().split("-")[0] for x in a.lang.split(",") if x.strip()]
-    vid = youtube_id(a.target)
-    key = f"{'yt:' + vid if vid else a.target}|{a.episode}|{','.join(langs)}|{a.whisper_model}"
-    out = Path(tempfile.gettempdir()) / "skimcast" / hashlib.sha1(key.encode()).hexdigest()[:12]
     try:
-        if not a.fresh and (out / "meta.json").exists() and (out / "transcript.txt").exists():
-            meta = json.loads((out / "meta.json").read_text(encoding="utf-8"))
-            if all(Path(f).exists() for f in meta["parts"]):  # geçici klasör temizlenmiş olabilir
-                note("(önbellekten)")
-                print_result(meta, (out / "transcript.txt").read_text(encoding="utf-8"))
-                return 0
-        emit(get_transcript(a.target, langs, a.whisper_model, a.episode), a.target, out)
+        print_result(*load(a.target, langs, a.whisper_model, a.episode, a.fresh))
         return 0
     except SkimError as e:
         print(f"HATA: {e}", file=sys.stderr)

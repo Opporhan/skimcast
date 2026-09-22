@@ -31,6 +31,26 @@ En hızlı kaynağı dener, otomatik yedeğe düşer:
 
 Deşifre **kendi bilgisayarında** çalışır ve yalnızca hazır transcript yoksa devreye girer. Uzun seste yavaştır — Apple M2'de ölçüm: küçük `tiny` model gerçek sürenin yaklaşık 8 katı hızında, varsayılan `small` daha yavaş ama daha doğru. Özet, transcript'in nasıl elde edildiğini her zaman söyler; otomatik üretilmişse uyarır.
 
+## Claude Desktop'ta kullan (terminal ve VS Code gerekmez)
+
+skimcast bir [MCP](https://modelcontextprotocol.io) sunucusu da içerir; Claude masaüstü uygulamasına link yapıştırıp özet isteyebilirsin. Özeti yine Claude yazar, API anahtarı gerekmez.
+
+1. Python 3.10+ kurulu değilse kur; GitHub'da **Code → Download ZIP** ile indirip kalıcı bir klasöre çıkar.
+2. Claude Desktop'ta **Settings → Developer → Edit Config**'i aç ve ekle (gerçek yolu yaz; Windows'ta `python3` yerine `python`):
+
+```json
+{
+  "mcpServers": {
+    "skimcast": {
+      "command": "python3",
+      "args": ["/yol/skimcast/skills/summarize/mcp_server.py"]
+    }
+  }
+}
+```
+
+3. Claude Desktop'ı yeniden başlat. İlk açılışta bağımlılıklar kurulur (~1 dk). Sonra sadece şunu yaz: *"Şu videoyu özetle: https://www.youtube.com/watch?v=…"*.
+
 ## Yapamadıkları (dürüstçe)
 
 - **DRM'li / girişli içerik:** Spotify, Netflix, özel veya bölge kısıtlı videolar. Spotify yerine podcast'in Apple Podcasts ya da RSS linkini kullan.

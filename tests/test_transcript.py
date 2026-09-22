@@ -334,3 +334,36 @@ def test_ytdlp_hint_skipped_for_404(monkeypatch):
     with pytest.raises(tr.SkimError) as e:
         tr.get_transcript("https://x.example/v", ["tr"], "small", 0)
     assert "yt-dlp eski" not in str(e.value)
+
+
+def _server():
+    pytest.importorskip("mcp")
+    spec = importlib.util.spec_from_file_location("mcp_server", _path.with_name("mcp_server.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_mcp_tool_pages_long_transcripts(monkeypatch, tmp_path):
+    srv = _server()
+    parts = []
+    for i in (1, 2):
+        f = tmp_path / f"part-{i:02d}.txt"
+        f.write_text(f"[0{i}:00] metin {i}", encoding="utf-8")
+        parts.append(str(f))
+    meta = {"title": "T", "source": "https://x", "method": "test", "duration": "10:00", "link_prefix": "", "chars": 9, "parts": parts}
+    monkeypatch.setattr(srv.tr, "load", lambda *a: (meta, "hepsi"))
+    first = srv.get_transcript("https://x")
+    assert "part: 1/2 (devamı için part=2" in first and "metin 1" in first and "metin 2" not in first
+    assert "(son parça)" in srv.get_transcript("https://x", part=2) and "metin 2" in srv.get_transcript("https://x", part=2)
+    assert srv.get_transcript("https://x", part=3).startswith("HATA: part 1 ile 2")
+
+
+def test_mcp_tool_returns_errors_as_text(monkeypatch):
+    srv = _server()
+
+    def fail(*a):
+        raise srv.tr.SkimError("desteklenmiyor")
+
+    monkeypatch.setattr(srv.tr, "load", fail)
+    assert srv.get_transcript("https://x") == "HATA: desteklenmiyor"
