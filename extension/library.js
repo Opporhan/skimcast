@@ -309,7 +309,7 @@ async function init() {
   app.innerHTML = `
     <header class="header-top">
       <div>
-        <a class="back" href="popup.html">${t("popup_title")}</a>
+        <a class="back" href="popup.html?standalone=1">${t("popup_title")}</a>
         <h1>${t("library_title")}</h1>
       </div>
       <div class="header-btns">

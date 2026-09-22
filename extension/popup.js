@@ -31,9 +31,12 @@ async function run() {
 }
 
 async function init() {
-  // Bu sayfa kütüphaneden ("skimcast" linki) NORMAL BİR SEKME olarak da açılabiliyor — gerçek popup'ta
-  // referrer olmuyor, sayfa yönlendirmesinde oluyor. Sadece o durumda ortalıyoruz (bkz. popup.css).
-  if (document.referrer) document.documentElement.classList.add("standalone-page");
+  // Bu sayfa kütüphaneden ("skimcast" linki) NORMAL BİR SEKME olarak da açılabiliyor. document.referrer
+  // güvenilir çıkmadı (uzantı sayfaları arası yönlendirmede boş kalabiliyor) — bunun yerine kütüphanedeki
+  // linkin kendisi ?standalone=1 ekliyor, biz de ondan bakıyoruz. Sadece o durumda ortalıyoruz (popup.css).
+  if (new URLSearchParams(location.search).get("standalone")) {
+    document.documentElement.classList.add("standalone-page");
+  }
   await initLang();
   applyI18n();
   mountThemeButton(document.getElementById("themeBtn"));
