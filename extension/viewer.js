@@ -526,6 +526,11 @@ async function init() {
   // yanılabiliyor, kullanıcı istediği hedefi her zaman görebilsin.
   translateSelect.innerHTML = TRANSLATE_LANGS
     .map((l) => `<option value="${l.code}">${escapeHtml(l.label)}</option>`).join("");
+  // Her seferinde dil seçmek zorunda kalmasın diye en son hangi dile çevirdiyse (bu videoda değilse
+  // bile) o dil önceden seçili geliyor — genelde hep aynı dile çevrilir.
+  const DEFAULT_TRANSLATE_LANG_KEY = "skimcastDefaultTranslateLang";
+  const { [DEFAULT_TRANSLATE_LANG_KEY]: defaultLang } = await chrome.storage.local.get(DEFAULT_TRANSLATE_LANG_KEY);
+  if (defaultLang && defaultLang !== sourceLang) translateSelect.value = defaultLang;
 
   function applyTexts(texts, lang) {
     state.texts = texts;
@@ -549,6 +554,8 @@ async function init() {
       translateBtn.disabled = false;
       return;
     }
+
+    await chrome.storage.local.set({ [DEFAULT_TRANSLATE_LANG_KEY]: target });
 
     const cached = entry.translations?.[target];
     if (cached && cached.length === blocks.length) {

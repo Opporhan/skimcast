@@ -7,6 +7,13 @@ function escapeHtml(s) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+function fmtTime(sec) {
+  sec = Math.floor(sec);
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  const pad = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+}
+
 const archiveKey = (id) => `skimcastArchive:${id}`;
 const ARCHIVE_INDEX_KEY = "skimcastArchiveIndex";
 const FOLDERS_KEY = "skimcastFolders";
@@ -79,8 +86,9 @@ function iconHtml(icon) {
 }
 
 // ------------------------------------------------------------ klasör modalı (oluştur / düzenle / sil)
-// Aynı modal hem yeni klasör açmak hem var olanı düzenlemek (isim, ikon/görsel değiştirme, silme) için
-// kullanılıyor. Ekranın ortasında açılır (window.prompt() değil).
+// Aynı modal hem yeni klasör açmak hem var olanı düzenlemek (isim, ikon/görsel, not, sabitleme, silme,
+// Markdown olarak dışa aktarma) için kullanılıyor. Ekranın ortasında açılır (window.prompt() değil).
+// Kartın kendisi sade kalsın diye ("kafa karışıklığı olmadan") bu ek eylemler karta değil, buraya konuldu.
 function openFolderModal(existing) {
   return new Promise((resolve) => {
     const isEdit = !!existing;
@@ -97,6 +105,9 @@ function openFolderModal(existing) {
           <button type="button" class="icon-choice icon-upload" id="iconUploadBtn" title="${escapeHtml(t("upload_image_hint"))}">🖼️</button>
           <input type="file" id="iconUploadInput" accept="image/*" hidden>
         </div>
+        <textarea id="modalFolderNote" class="folder-note-input" placeholder="${escapeHtml(t("folder_note_placeholder"))}">${escapeHtml(existing?.note || "")}</textarea>
+        <label class="checkbox-row"><input type="checkbox" id="modalFolderPin"${existing?.pinned ? " checked" : ""}> ${t("pin_folder_label")}</label>
+        ${isEdit ? `<button type="button" id="modalExport" class="link-btn">${t("export_folder_md_btn")}</button>` : ""}
         <div class="modal-actions">
           ${isEdit ? `<button id="modalDelete" class="danger">${t("modal_delete")}</button>` : ""}
           <span class="spacer"></span>
@@ -107,6 +118,8 @@ function openFolderModal(existing) {
     document.body.appendChild(overlay);
 
     const input = overlay.querySelector("#modalFolderName");
+    const noteInput = overlay.querySelector("#modalFolderNote");
+    const pinInput = overlay.querySelector("#modalFolderPin");
     const preview = overlay.querySelector("#iconPreview");
     requestAnimationFrame(() => input.focus());
 
@@ -134,11 +147,12 @@ function openFolderModal(existing) {
     overlay.querySelector("#modalSave").addEventListener("click", () => {
       const name = input.value.trim();
       if (!name) { input.focus(); return; }
-      close({ action: "save", name, icon });
+      close({ action: "save", name, icon, note: noteInput.value.trim(), pinned: pinInput.checked });
     });
     // Tarayıcının kendi confirm() penceresi ekranın üstünden, ortalanmamış çıkıyordu — kaldırıldı,
     // "Sil" artık doğrudan siliyor.
     overlay.querySelector("#modalDelete")?.addEventListener("click", () => close({ action: "delete" }));
+    overlay.querySelector("#modalExport")?.addEventListener("click", () => close({ action: "export" }));
   });
 }
 
@@ -319,6 +333,13 @@ async function init() {
       <button id="favViewBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_view_btn")}</button>
     </div>
     <div id="list"></div>
+
+    <footer class="backup-footer">
+      <button id="backupBtn" class="link-btn">${t("backup_btn")}</button>
+      <span class="dot">·</span>
+      <button id="restoreBtn" class="link-btn">${t("restore_btn")}</button>
+      <input type="file" id="restoreFile" accept="application/json" hidden>
+    </footer>
     <div id="toast" class="toast"></div>
   `;
   mountThemeButton(document.getElementById("themeBtn"));
@@ -356,10 +377,13 @@ async function init() {
   }
 
   function renderFolderCards(allHighlights) {
+    // Sabitlenen klasörler ("📌 Bu klasörü sabitle") en sık kullandıklarında her seferinde aramamak için
+    // en başa geliyor — "Tümü" her zaman ilk sırada kalıyor.
+    const sortedFolders = [...folders].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
     const cards = [{ name: null, label: t("all_folders"), icon: "🗂️", system: true },
-      ...folders.map((f) => ({ name: f.name, label: f.name, icon: f.icon }))];
+      ...sortedFolders.map((f) => ({ name: f.name, label: f.name, icon: f.icon, note: f.note, pinned: f.pinned }))];
     foldersEl.innerHTML = cards.map((f) => `
-      <div class="folder-card${activeFolder === f.name ? " active" : ""}" data-folder="${escapeHtml(f.name ?? "")}" data-all="${f.system ? "1" : "0"}">
+      <div class="folder-card${activeFolder === f.name ? " active" : ""}${f.pinned ? " pinned" : ""}" data-folder="${escapeHtml(f.name ?? "")}" data-all="${f.system ? "1" : "0"}"${f.note ? ` title="${escapeHtml(f.note)}"` : ""}>
         ${!f.system ? `<button class="folder-edit-btn" data-folder="${escapeHtml(f.name)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>` : ""}
         <span class="folder-icon">${iconHtml(f.icon)}</span>
         <span class="folder-name">${escapeHtml(f.label)}</span>
@@ -404,6 +428,46 @@ async function init() {
     listEl.innerHTML = filtered.length ? filtered.map(highlightRowHtml).join("") : `<p class="hint">${t("no_favorites")}</p>`;
   }
 
+  // Bir klasörün içeriğini (videolar + favoriler) tek bir Markdown dosyası olarak indirir — Obsidian/
+  // Notion gibi not araçlarına doğrudan taşınabilsin diye. Hiçbir API/ağ isteği yok, tamamen yerel.
+  async function exportFolderMarkdown(folderName) {
+    const allHighlights = await getAllHighlights(index);
+    const videos = index.filter((e) => e.folder === folderName);
+    const favs = allHighlights.filter((h) => (h.folder || NO_FOLDER) === folderName);
+    const folder = folders.find((f) => f.name === folderName);
+
+    let md = `# ${folderName}\n\n`;
+    if (folder?.note) md += `_${folder.note}_\n\n`;
+
+    if (videos.length) {
+      md += `## ${t("export_md_videos_heading")}\n\n`;
+      const records = await chrome.storage.local.get(videos.map((v) => archiveKey(v.id)));
+      for (const v of videos) {
+        const url = records[archiveKey(v.id)]?.url || "";
+        const meta = [v.method, v.duration].filter(Boolean).join(" · ");
+        md += url ? `- [${v.title || "(başlıksız)"}](${url}) — ${meta}\n` : `- ${v.title || "(başlıksız)"} — ${meta}\n`;
+      }
+      md += "\n";
+    }
+
+    if (favs.length) {
+      md += `## ${t("export_md_favorites_heading")}\n\n`;
+      for (const h of favs) {
+        const timeLabel = h.sec != null ? ` [${fmtTime(h.sec)}]` : "";
+        const link = h.url && h.sec != null ? `${h.url}${Math.floor(h.sec)}` : "";
+        md += `> ${h.text}\n> — ${h.videoTitle || "(başlıksız)"}${timeLabel}${link ? ` — [${t("open_link_label")}](${link})` : ""}\n\n`;
+      }
+    }
+
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${folderName.replace(/[\\/:*?"<>|]+/g, " ").trim()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function render() {
     const allHighlights = await getAllHighlights(index);
     renderFolderCards(allHighlights);
@@ -412,6 +476,64 @@ async function init() {
   }
 
   await render();
+
+  // ------------------------------------------------------------ yedekle / geri yükle
+  // Tüm klasör/favori/video verisi tarayıcının kendi deposunda duruyor — profil silinirse ya da
+  // bilgisayar değişirse hepsi gider. Tek dosyaya yedekleyip başka bir profilde geri yüklemek için.
+  document.getElementById("backupBtn").addEventListener("click", async () => {
+    const all = await chrome.storage.local.get(null);
+    const backup = {};
+    for (const k in all) {
+      if (k.startsWith("skimcastArchive:") || k === ARCHIVE_INDEX_KEY || k === FOLDERS_KEY) backup[k] = all[k];
+    }
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `skimcast-yedek-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast(t("backup_done_toast"));
+  });
+
+  function openRestoreConfirmModal() {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.className = "modal-overlay";
+      overlay.innerHTML = `
+        <div class="modal">
+          <h2>${t("restore_btn")}</h2>
+          <p class="hint">${t("restore_warning")}</p>
+          <div class="modal-actions"><span class="spacer"></span><button id="restoreCancel">${t("modal_cancel")}</button><button id="restoreConfirm" class="primary">${t("restore_confirm_btn")}</button></div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const close = (v) => { overlay.remove(); resolve(v); };
+      overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(false); });
+      overlay.querySelector("#restoreCancel").addEventListener("click", () => close(false));
+      overlay.querySelector("#restoreConfirm").addEventListener("click", () => close(true));
+    });
+  }
+
+  const restoreFile = document.getElementById("restoreFile");
+  document.getElementById("restoreBtn").addEventListener("click", () => restoreFile.click());
+  restoreFile.addEventListener("change", async () => {
+    const file = restoreFile.files?.[0];
+    restoreFile.value = ""; // aynı dosyayı tekrar seçebilmek için
+    if (!file) return;
+    let data;
+    try {
+      data = JSON.parse(await file.text());
+    } catch {
+      showToast(t("restore_invalid_toast"));
+      return;
+    }
+    if (!(await openRestoreConfirmModal())) return;
+    await chrome.storage.local.set(data);
+    index = await getIndex();
+    folders = await getFolders();
+    showToast(t("restore_done_toast"));
+    render();
+  });
 
   searchInput.addEventListener("input", () => { if (!favView) render(); });
   sortSelect.addEventListener("change", render);
@@ -429,7 +551,7 @@ async function init() {
       const result = await openFolderModal();
       if (result?.action === "save") {
         if (folders.some((f) => f.name === result.name)) { activeFolder = result.name; render(); return; }
-        folders.push({ name: result.name, icon: result.icon });
+        folders.push({ name: result.name, icon: result.icon, note: result.note, pinned: result.pinned });
         await saveFolders(folders);
         activeFolder = result.name;
       }
@@ -442,7 +564,8 @@ async function init() {
       const result = await openFolderModal(current);
       if (result?.action === "save") {
         if (result.name !== current.name) await reassignFolder(current.name, result.name);
-        folders = folders.map((f) => (f.name === current.name ? { name: result.name, icon: result.icon } : f));
+        folders = folders.map((f) => (f.name === current.name
+          ? { name: result.name, icon: result.icon, note: result.note, pinned: result.pinned } : f));
         await saveFolders(folders);
         index = await getIndex();
         if (activeFolder === current.name) activeFolder = result.name;
@@ -452,6 +575,9 @@ async function init() {
         await saveFolders(folders);
         index = await getIndex();
         if (activeFolder === current.name) activeFolder = null;
+      } else if (result?.action === "export") {
+        await exportFolderMarkdown(current.name);
+        return; // veri değişmedi, yeniden çizmeye gerek yok
       }
       render();
       return;

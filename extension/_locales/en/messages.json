@@ -107,6 +107,45 @@
   "move_failed_toast": {
     "message": "Couldn't move it, try again."
   },
+  "folder_note_placeholder": {
+    "message": "What's this folder for? (optional)"
+  },
+  "pin_folder_label": {
+    "message": "📌 Pin this folder"
+  },
+  "export_folder_md_btn": {
+    "message": "⬇ Download as Markdown"
+  },
+  "export_md_videos_heading": {
+    "message": "Videos"
+  },
+  "export_md_favorites_heading": {
+    "message": "Favorites"
+  },
+  "open_link_label": {
+    "message": "open"
+  },
+  "backup_btn": {
+    "message": "Back Up"
+  },
+  "restore_btn": {
+    "message": "Restore"
+  },
+  "backup_done_toast": {
+    "message": "Backup downloaded."
+  },
+  "restore_warning": {
+    "message": "This will replace your current library (folders, videos, favorites) with the one in the backup file you picked. Continue?"
+  },
+  "restore_confirm_btn": {
+    "message": "Restore"
+  },
+  "restore_invalid_toast": {
+    "message": "Invalid backup file."
+  },
+  "restore_done_toast": {
+    "message": "Restored."
+  },
   "fav_view_btn": {
     "message": "Favorites"
   },

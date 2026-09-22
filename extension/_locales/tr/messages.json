@@ -107,6 +107,45 @@
   "move_failed_toast": {
     "message": "Taşınamadı, tekrar dene."
   },
+  "folder_note_placeholder": {
+    "message": "Bu klasör ne için? (isteğe bağlı)"
+  },
+  "pin_folder_label": {
+    "message": "📌 Bu klasörü sabitle"
+  },
+  "export_folder_md_btn": {
+    "message": "⬇ Markdown olarak indir"
+  },
+  "export_md_videos_heading": {
+    "message": "Videolar"
+  },
+  "export_md_favorites_heading": {
+    "message": "Favoriler"
+  },
+  "open_link_label": {
+    "message": "aç"
+  },
+  "backup_btn": {
+    "message": "Yedekle"
+  },
+  "restore_btn": {
+    "message": "Geri Yükle"
+  },
+  "backup_done_toast": {
+    "message": "Yedek indirildi."
+  },
+  "restore_warning": {
+    "message": "Bu, mevcut kütüphaneni (klasörler, videolar, favoriler) seçtiğin yedek dosyasındakiyle değiştirecek. Devam edilsin mi?"
+  },
+  "restore_confirm_btn": {
+    "message": "Geri Yükle"
+  },
+  "restore_invalid_toast": {
+    "message": "Geçersiz yedek dosyası."
+  },
+  "restore_done_toast": {
+    "message": "Geri yüklendi."
+  },
   "fav_view_btn": {
     "message": "Favoriler"
   },

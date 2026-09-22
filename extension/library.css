@@ -158,12 +158,39 @@ button:hover { filter: brightness(.96); }
 .icon-choice:hover { filter: brightness(.94); }
 .icon-upload { color: var(--text-muted); }
 
+.folder-note-input {
+  width: 100%; margin-top: 12px; padding: 9px 11px; border: none; border-radius: 9px;
+  background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 13px; resize: vertical; min-height: 44px;
+}
+.checkbox-row { display: flex; align-items: center; gap: 7px; margin-top: 12px; font-size: 13px; color: var(--text-muted); }
+.checkbox-row input { width: auto; }
+.link-btn {
+  background: none; padding: 0; color: var(--accent); font-size: 12px; text-decoration: none;
+}
+.link-btn:hover { text-decoration: underline; }
+
 .modal-actions { display: flex; align-items: center; gap: 8px; margin-top: 18px; }
 .modal-actions .spacer { flex: 1; }
 .modal-actions .primary { background: var(--accent); color: #fff; }
 .modal-actions .primary:hover { filter: brightness(1.08); }
 .modal-actions .danger { background: none; color: #d70015; padding-left: 0; }
 .modal-actions .danger:hover { text-decoration: underline; }
+.modal-actions input {
+  flex: 1; padding: 9px 11px; border: none; border-radius: 9px; background: var(--bg-subtle);
+  color: var(--text); font-size: 13px;
+}
+
+/* Sabitlenen klasör kartı: küçük, sessiz bir işaret (üst köşede nokta) — abartılı değil. */
+.folder-card.pinned::before {
+  content: ""; position: absolute; top: 10px; left: 10px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--accent);
+}
+
+.backup-footer {
+  margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted);
+}
+.backup-footer .dot { opacity: .5; }
 
 .toast {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(8px);
