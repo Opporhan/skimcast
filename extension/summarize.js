@@ -101,6 +101,10 @@ async function callGroqOnce(apiKey, prompt, maxTokens, model) {
       : msgMatch
         ? Math.ceil(parseFloat(msgMatch[1]) * (msgMatch[2].toLowerCase() === "s" ? 1000 : 1))
         : null;
+    // "tokens per day (TPD)" / "requests per day (RPD)" — bu GÜNLÜK bir kota, dakikalık (TPM/RPM) hız
+    // sınırı gibi kısa bir bekleyişle geçmiyor (bekleme onlarca dakika sürebilir). Beklemek yerine
+    // hemen diğer modele geçmek daha mantıklı: onun kendi, muhtemelen dolmamış günlük kotası var.
+    err.dailyQuota = /per day|\(TPD\)|\(RPD\)/i.test(msg);
     throw err;
   }
   const text = data?.choices?.[0]?.message?.content || "";
@@ -125,7 +129,7 @@ async function callGroqWithRetry(apiKey, prompt, maxTokens, model) {
     try {
       return await callGroqOnce(apiKey, prompt, maxTokens, model);
     } catch (e) {
-      if (!RETRYABLE_STATUS.has(e.status)) throw e;
+      if (!RETRYABLE_STATUS.has(e.status) || e.dailyQuota) throw e; // günlük kota: beklemenin anlamı yok, sıradaki modele geç
       const wait = Math.min(e.retryDelayMs ?? 3000, 20000);
       if (totalWaited + wait > MAX_RETRY_WAIT_MS) throw e;
       totalWaited += wait;
@@ -135,11 +139,11 @@ async function callGroqWithRetry(apiKey, prompt, maxTokens, model) {
 }
 
 // Groq, bir model yoksa/erişimin yoksa 404, emekliye ayrılmışsa 400 ("decommissioned") döndürüyor,
-// istek bu modelin dakikalık token bütçesine sığmıyorsa 413 — üçü de "sıradaki modeli dene" demek
-// (413'te başka bir modelin bütçesi daha geniş olabilir). Kota/sunucu hataları (401/429/503) bu
-// listeye girmez, direkt fırlatılır (başka model denemek onları çözmez).
+// istek bu modelin dakikalık token bütçesine sığmıyorsa 413, günlük kotası tükendiyse 429+dailyQuota —
+// dördü de "sıradaki modeli dene" demek (her modelin kendi, ayrı günlük/dakikalık kotası var). Dakikalık
+// hız sınırı (429, dailyQuota olmadan) ve sunucu hataları (401/503) bu listeye girmez, direkt fırlatılır.
 function isModelUnavailable(e) {
-  if (e.status === 404 || e.status === 413) return true;
+  if (e.status === 404 || e.status === 413 || e.dailyQuota) return true;
   return e.status === 400 && /decommission|does not exist|no longer supported|not found/i.test(e.message);
 }
 
