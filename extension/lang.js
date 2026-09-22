@@ -39,6 +39,7 @@ async function setUiLang(lang) {
 }
 
 async function mountLangButton(btn) {
+  if (!btn) return;
   const lang = await getUiLang();
   btn.textContent = lang === "tr" ? "🌐 TR" : "🌐 EN";
   btn.title = "Türkçe / English";

@@ -28,8 +28,10 @@ async function toggleTheme() {
   return next;
 }
 
-// Her sayfa kendi başlığına bunu çağırıp bir tema düğmesi ekler.
+// Her sayfa kendi başlığına bunu çağırıp bir tema düğmesi ekler. btn null gelirse (element henüz DOM'da
+// yoksa/bulunamadıysa) sessizce çıkıyoruz — çökmek yerine.
 async function mountThemeButton(btn) {
+  if (!btn) return;
   const setIcon = (theme) => { btn.textContent = theme === "dark" ? "☀️" : "🌙"; };
   setIcon(await getTheme());
   btn.addEventListener("click", async () => setIcon(await toggleTheme()));
