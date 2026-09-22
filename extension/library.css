@@ -1,0 +1,33 @@
+body {
+  margin: 0;
+  font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1a1a1a;
+  background: #fafafa;
+}
+#app { max-width: 720px; margin: 0 auto; padding: 32px 20px 60px; }
+header { margin-bottom: 16px; }
+.back { display: inline-block; margin-bottom: 8px; color: #5e54e0; text-decoration: none; font-size: 13px; }
+.back:hover { text-decoration: underline; }
+h1 { font-size: 22px; margin: 0; }
+
+#search {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; margin-bottom: 18px;
+  border: 1px solid #d0d0d5; border-radius: 8px; font-size: 15px;
+}
+
+.hint { color: #888; font-size: 14px; font-style: italic; }
+
+.row {
+  position: relative; padding: 12px 70px 12px 14px; border-radius: 8px; background: #fff;
+  border: 1px solid #eee; margin-bottom: 8px;
+}
+.row .title { font-size: 15px; font-weight: 600; color: #1a1a1a; text-decoration: none; display: block; }
+.row .title:hover { color: #5e54e0; }
+.row-meta { color: #888; font-size: 12px; margin-top: 3px; }
+.row .snippet { margin-top: 6px; font-size: 13px; color: #444; }
+.row .snippet mark { background: #ffe08a; border-radius: 2px; }
+.row .delete {
+  position: absolute; top: 12px; right: 10px; font-size: 12px; padding: 4px 10px;
+  border: 1px solid #d0d0d5; border-radius: 6px; background: #fff; cursor: pointer;
+}
+.row .delete:hover { background: #fdecea; border-color: #e0b4ad; color: #c0392b; }

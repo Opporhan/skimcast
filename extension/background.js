@@ -1,8 +1,14 @@
-// skimcast (uzantı): background.js — transcript'i toplar.
+// skimcast (uzantı): background.js — transcript'i toplar, arşive kaydeder, görüntüleyici sekmesini açar.
 // Podcast RSS / Apple Podcasts / web sayfası: doğrudan JS fetch ile (aşağıda). YouTube ise tarayıcıdan
 // artık erişilemiyor (bkz. fromYoutube) — bunun için skills/summarize/native_host.py'ye (Python,
 // youtube_transcript_api) native messaging ile bağlanıyoruz; sürekli çalışan bir sunucu değil, Chrome
 // anlık olarak başlatıp kapatıyor.
+//
+// Eskiden burada bir de Groq'a (ücretsiz LLM API'si) istek atıp özet çıkarma adımı vardı. Bir gece
+// boyunca kota/model/hız-sınırı sorunlarıyla uğraştıktan sonra (bkz. git geçmişi) bilinçli olarak
+// vazgeçildi: ücretsiz bulut LLM'lerin kotaları güvenilir bir ürün için yetersiz. Bunun yerine zaten
+// sağlam çalışan parçaya (transcript çıkarma) odaklanıldı — özet yerine aranabilir/atlanabilir bir
+// transcript görüntüleyici + kişisel arşiv.
 
 const BLOCK_SECONDS = 30;
 const MIN_PAGE_CHARS = 300;
@@ -59,7 +65,7 @@ function youtubeId(url) {
 // bir şey (denendi, doğrulandı: gerçek tıklama çalışıyor, .click() ve chrome.debugger ile üretilen
 // "tıklamalar" çalışmıyor). Bunu atlatmaya çalışmak (sahte-ama-güvenilir olay üretmek) yapmayacağımız bir
 // şey. Bunun yerine YouTube'u bu korumaya hiç takılmayan gerçek bir Python süreciyle (youtube_transcript_api)
-// okuyoruz: Chrome, "Özetle" dendiğinde skills/summarize/native_host.py'yi anlık başlatıp kapatıyor
+// okuyoruz: Chrome, transcript istendiğinde skills/summarize/native_host.py'yi anlık başlatıp kapatıyor
 // (native messaging) — sürekli açık duran bir sunucu değil. Kurulum tek seferlik: extension/install_native_host.py.
 const NATIVE_HOST = "com.skimcast.native_host";
 
@@ -216,35 +222,79 @@ function buildTranscriptText(t) {
   return blocks.join("\n");
 }
 
-const resultKey = (id) => `skimcastResult:${id}`;
+// ---------------------------------------------------------------- kimlik + arşiv
+// FNV-1a: podcast/web linkleri için basit, hızlı, senkron bir hash — kriptografik bir amacı yok, sadece
+// aynı link tekrar getirilince aynı arşiv kaydının üzerine yazılsın diye (YouTube'da video ID zaten var).
+function hashString(s) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16);
+}
 
-// Bu servis çalışanının (background.js) tek işi artık transcript'i almak ve sonuç sekmesini açmak.
-// Asıl özetleme (Groq'a istek atmak, uzun videolarda dakikalarca sürebilen chunk/retry döngüsü)
-// summarize.js'te ve sonuç sekmesinin kendi script'inde (result.js) çalışıyor — burada DEĞİL, çünkü
-// Chrome servis çalışanlarını uzun süren işlerin ortasında sonlandırabiliyor (uzun videolarda
-// "Özetleniyor" ekranı bu yüzden sonsuza kadar takılı kalıyordu). Normal bir sekme öldürülmüyor.
+function stableId(url) {
+  const vid = youtubeId(url);
+  return vid ? `yt:${vid}` : `u:${hashString(url)}`;
+}
+
+function parseTimeLabel(label) {
+  const parts = label.split(":").map(Number);
+  while (parts.length < 3) parts.unshift(0);
+  return parts[0] * 3600 + parts[1] * 60 + parts[2];
+}
+
+// Hem native (Python) tarafının hem de kendi toBlocks()'umuzun ürettiği "[mm:ss] metin" satırlarını
+// {sec, text} nesnelerine çevirir — görüntüleyici ve kütüphane (arama, tıkla-git, reklam tespiti)
+// bunun üzerinden çalışır. Zaman damgası yoksa (web sayfası) sec null kalır.
+function parseTimedBlocks(text) {
+  const blocks = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^\[(\d{1,2}(?::\d{2}){1,2})\]\s?(.*)$/);
+    blocks.push(m ? { sec: parseTimeLabel(m[1]), text: m[2] } : { sec: null, text: line });
+  }
+  return blocks;
+}
+
+const archiveKey = (id) => `skimcastArchive:${id}`;
+const ARCHIVE_INDEX_KEY = "skimcastArchiveIndex";
+
+// Arşiv iki parçada tutulur: her kayıt kendi anahtarında (tam metin, olası büyük), ve hafif bir dizin
+// (skimcastArchiveIndex) sadece kütüphane sayfasını hızlıca doldurmak için. Aynı video/link tekrar
+// getirilirse (stableId aynı çıkar) kayıt güncellenir, kopya oluşmaz.
+async function saveToArchive(id, url, meta, blocks) {
+  const entry = { id, url, meta, blocks, ts: Date.now() };
+  const { [ARCHIVE_INDEX_KEY]: index = [] } = await chrome.storage.local.get(ARCHIVE_INDEX_KEY);
+  const nextIndex = [
+    { id, title: meta.title, method: meta.method, duration: meta.duration, ts: entry.ts },
+    ...index.filter((e) => e.id !== id),
+  ];
+  await chrome.storage.local.set({ [archiveKey(id)]: entry, [ARCHIVE_INDEX_KEY]: nextIndex });
+  return entry;
+}
+
+// Tek iş: transcript'i almak, arşive kaydetmek, görüntüleyici sekmesini açmak. Artık bir LLM'e istek
+// atmıyoruz (bkz. proje geçmişi: Groq'un ücretsiz katman kotaları + servis çalışanının uzun işlerin
+// ortasında Chrome tarafından sonlandırılması bütün geceyi almıştı) — transcript alma saniyeler
+// sürdüğü için servis çalışanının ömrüyle ilgili bir risk de yok.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg?.action !== "summarize") return;
-  const langs = (msg.lang || "tr,en").split(",").map((s) => s.trim().split("-")[0]).filter(Boolean);
+  if (msg?.action !== "fetch") return;
   (async () => {
     try {
-      const { skimcastGroqApiKey } = await chrome.storage.local.get("skimcastGroqApiKey");
-      if (!skimcastGroqApiKey) {
-        throw new SkimError("Groq API anahtarı ayarlanmamış. Uzantı popup'ında ayarlar bölümüne ücretsiz " +
-          "bir anahtar gir (console.groq.com üzerinden alınabilir, kredi kartı gerekmez).");
-      }
-      const t = await getTranscript(msg.url, langs);
+      const t = await getTranscript(msg.url, ["tr", "en"]);
       const meta = t.native
         ? { title: t.meta.title, method: t.meta.method, duration: t.meta.duration, linkPrefix: t.meta.link_prefix }
         : { title: t.title, method: t.method, duration: t.duration ? fmtTime(t.duration) : "", linkPrefix: t.linkPrefix };
       const text = t.native ? t.text : buildTranscriptText(t);
+      const blocks = parseTimedBlocks(text);
 
-      const id = crypto.randomUUID();
-      await chrome.storage.local.set({
-        [resultKey(id)]: { meta, text, langName: msg.langName || "English", markdown: "", status: "loading", ts: Date.now() },
-      });
-      chrome.tabs.create({ url: chrome.runtime.getURL(`result.html?id=${id}`) });
-      sendResponse({ ok: true, meta }); // popup burada rahatça kapanabilir; sonuç sekmesi kendi özetini kendi çıkarır
+      const id = stableId(msg.url);
+      await saveToArchive(id, msg.url, meta, blocks);
+      chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(id)}`) });
+      sendResponse({ ok: true, meta });
     } catch (e) {
       sendResponse({ ok: false, error: e instanceof SkimError ? e.message : `Beklenmeyen hata: ${e.message || e}` });
     }

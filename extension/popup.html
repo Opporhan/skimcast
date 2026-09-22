@@ -13,23 +13,12 @@
   <label data-i18n="url_label" for="url">Link</label>
   <input id="url" type="text" data-i18n-placeholder="url_placeholder">
 
-  <label data-i18n="lang_label" for="lang">Summary language</label>
-  <select id="lang"></select>
-  <input id="langOther" type="text" data-i18n-placeholder="lang_other_placeholder" style="display:none">
-
-  <button id="go" data-i18n="summarize_btn">Summarize</button>
+  <button id="go" data-i18n="fetch_btn">Get transcript</button>
 
   <p id="status" class="status" hidden></p>
   <p id="error" class="error" hidden></p>
 
-  <details id="settings">
-    <summary data-i18n="settings_label">Settings</summary>
-    <label data-i18n="api_key_label" for="apiKey">Groq API key</label>
-    <input id="apiKey" type="password" data-i18n-placeholder="api_key_placeholder">
-    <p class="hint" data-i18n="api_key_hint">Free, no card. Get one at console.groq.com.</p>
-    <button id="saveKey" data-i18n="api_key_save">Save</button>
-    <span id="keyStatus" class="hint"></span>
-  </details>
+  <a id="libraryLink" class="library-link" href="library.html" target="_blank" data-i18n="library_btn">Library</a>
 
   <footer data-i18n="footer_note">
     Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages.
