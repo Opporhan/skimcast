@@ -31,6 +31,9 @@ async function run() {
 }
 
 async function init() {
+  // Bu sayfa kütüphaneden ("skimcast" linki) NORMAL BİR SEKME olarak da açılabiliyor — gerçek popup'ta
+  // referrer olmuyor, sayfa yönlendirmesinde oluyor. Sadece o durumda ortalıyoruz (bkz. popup.css).
+  if (document.referrer) document.documentElement.classList.add("standalone-page");
   await initLang();
   applyI18n();
   mountThemeButton(document.getElementById("themeBtn"));

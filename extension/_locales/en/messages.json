@@ -253,8 +253,5 @@
   },
   "date_days_ago": {
     "message": "days ago"
-  },
-  "footer_note": {
-    "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. No API key needed, nothing is sent anywhere — everything stays in this browser."
   }
 }

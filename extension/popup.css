@@ -54,4 +54,14 @@ input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 1p
   font-size: 12px; font-weight: 600;
 }
 .library-link:hover { text-decoration: underline; }
-footer { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--bg-subtle); font-size: 11px; color: var(--text-muted); line-height: 1.5; }
+
+/* Bu sayfa hem gerçek uzantı popup'ı (araç çubuğu simgesine tıklayınca) hem de kütüphaneden
+   "skimcast" linkiyle NORMAL BİR SEKME olarak açılabiliyor — ikinci durumda sol üst köşede küçük bir
+   kutu gibi kalıyordu. popup.js, sayfa yönlendirmeyle mi açıldığını (referrer var mı) tespit edip bu
+   sınıfı ekliyor; gerçek popup'ta referrer olmadığı için bu kural hiç devreye girmiyor, popup'ın kendi
+   otomatik boyutlandırması etkilenmiyor.
+   */
+.standalone-page {
+  display: flex; min-height: 100vh; align-items: center; justify-content: center; background: var(--bg);
+}
+.standalone-page body { box-shadow: 0 8px 40px rgba(0, 0, 0, .12); border-radius: 16px; }

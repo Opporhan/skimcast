@@ -253,8 +253,5 @@
   },
   "date_days_ago": {
     "message": "gün önce"
-  },
-  "footer_note": {
-    "message": "YouTube, transcript etiketi olan podcast RSS/Apple Podcasts akışları ve makale sayfaları için çalışır. Hiçbir API anahtarı gerekmez, hiçbir yere veri gönderilmez — her şey bu tarayıcıda kalır."
   }
 }
