@@ -221,7 +221,17 @@ function buildTranscriptText(t) {
 // bir modele istek atmak şart. Önce Gemini kullanıldı ama en yeni modelin (gemini-3.6-flash) ücretsiz
 // katmanı günde yalnızca 20 istekle sınırlıydı; Groq'un ücretsiz katmanı (kredi kartı istemez,
 // console.groq.com) çok daha cömert, o yüzden buraya geçildi.
-const GROQ_MODEL = "llama-3.3-70b-versatile";
+// Groq'un model adları zaman zaman değişiyor/emekliye ayrılıyor (birini geçersiz anahtarla test etmek
+// işe yaramıyor: Groq önce anahtarı kontrol ediyor, model adını hiç bakmıyor). Bu yüzden tahmin etmek
+// yerine sırayla dene: biri "model does not exist" derse bir sonrakine geç.
+const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "llama-3.1-70b-versatile",
+  "llama3-70b-8192",
+  "llama3-8b-8192",
+  "gemma2-9b-it",
+];
 
 function reliabilityNote(method) {
   if (/otomatik|whisper/.test(method)) return "This transcript is auto-generated; names and numbers may contain errors.";
@@ -246,7 +256,7 @@ ${text}
 
 // Groq, OpenAI ile aynı istek/cevap biçimini kullanıyor (chat/completions). Hız sınırına (429) takılırsa
 // sunucunun standart "Retry-After" başlığını okuyup tahmin etmek yerine onu bekliyoruz.
-async function callGroqOnce(apiKey, prompt, maxTokens) {
+async function callGroqOnce(apiKey, prompt, maxTokens, model) {
   const url = "https://api.groq.com/openai/v1/chat/completions";
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 90000);
@@ -255,7 +265,7 @@ async function callGroqOnce(apiKey, prompt, maxTokens) {
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: GROQ_MODEL, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: maxTokens }),
+      body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }], temperature: 0.3, max_tokens: maxTokens }),
       signal: controller.signal,
     });
   } catch (e) {
@@ -281,17 +291,33 @@ async function callGroqOnce(apiKey, prompt, maxTokens) {
 // "hiç bitmiyor" hissi veriyordu). Sunucunun belirttiği bekleme süresi varsa onu kullanır (en fazla 15sn).
 const RETRYABLE_STATUS = new Set([429, 503]);
 
-async function callGroq(apiKey, prompt) {
+async function callGroqWithRetry(apiKey, prompt, model) {
   try {
-    return await callGroqOnce(apiKey, prompt, 4096);
+    return await callGroqOnce(apiKey, prompt, 4096, model);
   } catch (e) {
-    if (!RETRYABLE_STATUS.has(e.status)) {
-      if (e.status === 401) e.message += " API anahtarını kontrol et.";
-      throw e;
-    }
+    if (!RETRYABLE_STATUS.has(e.status)) throw e;
     await new Promise((r) => setTimeout(r, Math.min(e.retryDelayMs ?? 3000, 15000)));
-    return await callGroqOnce(apiKey, prompt, 4096);
+    return await callGroqOnce(apiKey, prompt, 4096, model);
   }
+}
+
+// GROQ_MODELS'i sırayla dener: "model bulunamadı/erişimin yok" (404) hatası alırsa bir sonraki
+// modele geçer, böylece Groq bir modeli emekliye ayırırsa uzantı elle düzeltmeden çalışmaya devam eder.
+async function callGroq(apiKey, prompt) {
+  let lastErr;
+  for (const model of GROQ_MODELS) {
+    try {
+      return await callGroqWithRetry(apiKey, prompt, model);
+    } catch (e) {
+      lastErr = e;
+      if (e.status !== 404) {
+        if (e.status === 401) e.message += " API anahtarını kontrol et.";
+        throw e;
+      }
+      // 404: bu model yok/erişimin yok, sıradakini dene
+    }
+  }
+  throw lastErr;
 }
 
 async function getApiKey() {
