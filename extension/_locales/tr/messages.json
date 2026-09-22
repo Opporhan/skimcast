@@ -176,6 +176,9 @@
   "fav_added_copied": {
     "message": "Favorilere eklendi ve kopyalandı ★"
   },
+  "fav_unstarred_kept": {
+    "message": "Yıldız kaldırıldı, dosyada kalmaya devam ediyor"
+  },
   "fav_removed": {
     "message": "Favorilerden çıkarıldı"
   },

@@ -144,7 +144,10 @@ async function init() {
   // hep buradan okur, blocks[i].text her zaman orijinal kalır (geri dönebilmek için).
   const state = { texts: blocks.map((b) => b.text), lang: null };
   const highlightKey = (i) => (blocks[i].sec != null ? `sec:${blocks[i].sec}` : `i:${i}`);
-  const isHighlighted = (i) => entry.highlights.some((h) => h.key === highlightKey(i));
+  // "Yıldızlı" olmak ile "bir klasöre kayıtlı" olmak birbirinden bağımsız — e-postada yıldızlamak ile
+  // bir etikete koymak nasıl ayrıysa, burada da öyle. h.starred===false olsa bile kayıt (ve klasörü)
+  // duruyor; sadece "starred !== false" (eski kayıtlarda alan hiç yoksa da true sayılır) yıldızlı sayılır.
+  const isHighlighted = (i) => entry.highlights.some((h) => h.key === highlightKey(i) && h.starred !== false);
 
   async function persistHighlights() {
     await chrome.storage.local.set({ [key]: entry });
@@ -152,10 +155,14 @@ async function init() {
 
   async function toggleHighlight(i, starBtn) {
     const hKey = highlightKey(i);
-    const idx = entry.highlights.findIndex((h) => h.key === hKey);
-    if (idx === -1) {
+    const existing = entry.highlights.find((h) => h.key === hKey);
+    if (!existing || existing.starred === false) {
       const b = blocks[i];
-      entry.highlights.push({ key: hKey, sec: b.sec, text: state.texts[i], title: meta.title, url: meta.linkPrefix, ts: Date.now() });
+      if (existing) {
+        existing.starred = true; // daha önce dosyaya taşınıp yıldızı kaldırılmıştı, tekrar yıldızlanıyor
+      } else {
+        entry.highlights.push({ key: hKey, sec: b.sec, text: state.texts[i], title: meta.title, url: meta.linkPrefix, starred: true, ts: Date.now() });
+      }
       starBtn.textContent = "★";
       starBtn.classList.add("starred");
       const url = jumpUrl(meta, b.sec);
@@ -163,8 +170,15 @@ async function init() {
       let copied = true;
       try { await navigator.clipboard.writeText(quote); } catch { copied = false; }
       showToast(copied ? t("fav_added_copied") : t("fav_added"));
+    } else if (existing.folder) {
+      // Bir klasöre kayıtlı — yıldızı kaldırmak onu klasörden SİLMEZ, sadece "yıldızlı" işaretini kaldırır.
+      // Tamamen silmek için kütüphanedeki "Kaldır" kullanılıyor.
+      existing.starred = false;
+      starBtn.textContent = "☆";
+      starBtn.classList.remove("starred");
+      showToast(t("fav_unstarred_kept"));
     } else {
-      entry.highlights.splice(idx, 1);
+      entry.highlights = entry.highlights.filter((h) => h.key !== hKey);
       starBtn.textContent = "☆";
       starBtn.classList.remove("starred");
       showToast(t("fav_removed"));
@@ -236,7 +250,8 @@ async function init() {
     const currentHighlight = () => entry.highlights.find((h) => h.key === highlightKey(i));
     setFolderLabel(currentHighlight()?.folder);
     folderBtn.title = t("move_to_folder_title");
-    folderBtn.hidden = !isHighlighted(i);
+    // Yıldızsız olsa bile bir klasöre kayıtlıysa görünür kalsın — taşımayı/çıkarmayı yönetebilesin.
+    folderBtn.hidden = !currentHighlight();
     folderBtn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
       const result = await openMoveToFolderModal();
@@ -264,7 +279,7 @@ async function init() {
     starBtn.addEventListener("click", async () => {
       await toggleHighlight(i, starBtn);
       row.dataset.fav = isHighlighted(i) ? "1" : "0";
-      folderBtn.hidden = !isHighlighted(i);
+      folderBtn.hidden = !currentHighlight(); // klasöre kayıtlıysa yıldızsız da görünür kalır
       if (favOnlyOn) applyFilters();
     });
     row.appendChild(starBtn);

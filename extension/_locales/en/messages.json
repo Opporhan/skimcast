@@ -176,6 +176,9 @@
   "fav_added_copied": {
     "message": "Added to favorites and copied ★"
   },
+  "fav_unstarred_kept": {
+    "message": "Unstarred, still kept in its folder"
+  },
   "fav_removed": {
     "message": "Removed from favorites"
   },
