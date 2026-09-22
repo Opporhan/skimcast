@@ -1,0 +1,17 @@
+{
+  "ext_name": { "message": "skimcast" },
+  "ext_description": { "message": "Linki yapıştır, claude.ai'de zaman damgalı özeti al — YouTube, podcast, makale." },
+  "popup_title": { "message": "skimcast" },
+  "url_label": { "message": "Link" },
+  "url_placeholder": { "message": "YouTube, podcast RSS, Apple Podcasts, makale…" },
+  "lang_label": { "message": "Özet dili" },
+  "lang_other_placeholder": { "message": "Bir dil yaz, ör. İtalyanca" },
+  "lang_other_option": { "message": "Diğer…" },
+  "summarize_btn": { "message": "Özetle" },
+  "status_fetching": { "message": "Transcript alınıyor…" },
+  "status_opening_claude": { "message": "claude.ai açılıyor…" },
+  "status_done": { "message": "claude.ai'ye gönderildi (yedek olarak panoya da kopyalandı)." },
+  "error_prefix": { "message": "Hata:" },
+  "error_no_url": { "message": "Önce bir link gir." },
+  "footer_note": { "message": "YouTube, transcript etiketi olan podcast RSS/Apple Podcasts akışları ve makale sayfaları için çalışır. yt-dlp ya da deşifre yok — hazır altyazısı olmayan siteler için skimcast Claude Code plugin'ini kullan." }
+}

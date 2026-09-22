@@ -1,0 +1,17 @@
+{
+  "ext_name": { "message": "skimcast" },
+  "ext_description": { "message": "Paste a link, get a timestamped summary in claude.ai — YouTube, podcasts, articles." },
+  "popup_title": { "message": "skimcast" },
+  "url_label": { "message": "Link" },
+  "url_placeholder": { "message": "YouTube, podcast RSS, Apple Podcasts, article…" },
+  "lang_label": { "message": "Summary language" },
+  "lang_other_placeholder": { "message": "Type a language, e.g. Italian" },
+  "lang_other_option": { "message": "Other…" },
+  "summarize_btn": { "message": "Summarize" },
+  "status_fetching": { "message": "Fetching the transcript…" },
+  "status_opening_claude": { "message": "Opening claude.ai…" },
+  "status_done": { "message": "Sent to claude.ai (also copied to clipboard, just in case)." },
+  "error_prefix": { "message": "Error:" },
+  "error_no_url": { "message": "Enter a link first." },
+  "footer_note": { "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. No yt-dlp or speech-to-text here — for sites without ready captions, use the skimcast Claude Code plugin instead." }
+}
