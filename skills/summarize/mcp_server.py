@@ -31,8 +31,7 @@ def _rules() -> str:
     body = skill[skill.index("## 2."):]  # kaynak güvenilirliği + özet biçimi + kalite kuralları
     return (
         "Kullanıcı bir video/podcast/makale linki verip özet isterse get_transcript aracını çağır. "
-        "Çıktı uzunsa 'part' değerini artırarak tüm parçaları sırayla al. Sonra aşağıdaki kurallarla özeti yaz "
-        "(kural metninde geçen 'transcript.py', 'Read' ve parça dosyaları bu ortamda yok; get_transcript çıktısını kullan).\n\n"
+        "Çıktı uzunsa 'part' değerini artırarak tüm parçaları sırayla al. Sonra aşağıdaki kurallarla özeti yaz.\n\n"
         + body
     )
 

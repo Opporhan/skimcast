@@ -407,11 +407,6 @@ def split_long(text: str, limit: int) -> list:
     return [*pieces, text]
 
 
-def emit(t: Transcript, target: str, out: Path) -> None:
-    """Transcript'i diske yazar, üst bilgi + (kısaysa) metni ya da parça listesini basar."""
-    print_result(*write_output(t, target, out))
-
-
 def write_output(t: Transcript, target: str, out: Path) -> tuple:
     """Transcript'i diske yazar; (meta, metin) döndürür."""
     out.mkdir(parents=True, exist_ok=True)

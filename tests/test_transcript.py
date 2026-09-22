@@ -182,7 +182,7 @@ def _transcript(n_blocks):
 
 
 def test_emit_short_prints_whole_transcript(tmp_path, capsys):
-    tr.emit(_transcript(2), "https://x", tmp_path)
+    tr.print_result(*tr.write_output(_transcript(2), "https://x", tmp_path))
     out = capsys.readouterr().out
     assert "=== SKIMCAST TRANSCRIPT ===" in out and "link_prefix: https://youtu.be/ID?t=" in out
     assert "[00:00]" in out and "parts:" not in out
@@ -191,7 +191,7 @@ def test_emit_short_prints_whole_transcript(tmp_path, capsys):
 
 def test_emit_long_writes_parts_and_lists_them(tmp_path, capsys, monkeypatch):
     monkeypatch.setattr(tr, "PART_CHARS", 300)
-    tr.emit(_transcript(20), "https://x", tmp_path)
+    tr.print_result(*tr.write_output(_transcript(20), "https://x", tmp_path))
     out = capsys.readouterr().out
     parts = sorted(tmp_path.glob("part-*.txt"))
     assert len(parts) > 1 and f"parts: {len(parts)}" in out
@@ -254,7 +254,7 @@ def test_split_long_and_emit_splits_one_huge_block(tmp_path, capsys, monkeypatch
     monkeypatch.setattr(tr, "PART_CHARS", 500)
     para = " ".join(f"kelime{i}" for i in range(400))
     t = tr.Transcript("Makale", "web-sayfası", [(0.0, para + "\n" + para)], 0.0, "", False)
-    tr.emit(t, "https://x", tmp_path)
+    tr.print_result(*tr.write_output(t, "https://x", tmp_path))
     parts = sorted(tmp_path.glob("part-*.txt"))
     assert len(parts) > 2 and all(len(p.read_text()) <= 500 for p in parts)
     assert " ".join(" ".join(p.read_text() for p in parts).split()) == " ".join((para + " " + para).split())
