@@ -11,9 +11,10 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const src = fs.readFileSync(path.join(dir, "background.js"), "utf8");
 const names = [
   "fmtTime", "toBlocks", "youtubeId", "parseSubtitles", "parsePodcastJson",
-  "hashString", "stableId", "parseTimeLabel", "parseTimedBlocks",
+  "hashString", "stableId", "parseTimeLabel", "stripNonSpeech", "parseTimedBlocks",
 ];
-let extracted = "const BLOCK_SECONDS = 30;\nconst YT_ID_RE = " + src.match(/const YT_ID_RE = (.+);/)[1] + ";\n";
+let extracted = "const BLOCK_SECONDS = 30;\nconst YT_ID_RE = " + src.match(/const YT_ID_RE = (.+);/)[1] + ";\n" +
+  "const NON_SPEECH_RE = " + src.match(/const NON_SPEECH_RE = (.+);/)[1] + ";\n";
 for (const n of names) {
   const m = src.match(new RegExp(`function ${n}\\([\\s\\S]*?\\n}\\n`));
   if (!m) throw new Error(`bulunamadı: ${n}`);
@@ -23,7 +24,7 @@ const tmpMod = path.join(dir, ".test-logic.mjs");
 fs.writeFileSync(tmpMod, extracted + "\nexport {" + names.join(",") + "};\n");
 const {
   fmtTime, toBlocks, youtubeId, parseSubtitles, parsePodcastJson,
-  hashString, stableId, parseTimeLabel, parseTimedBlocks,
+  hashString, stableId, parseTimeLabel, stripNonSpeech, parseTimedBlocks,
 } = await import(`file://${tmpMod}`);
 fs.unlinkSync(tmpMod);
 
@@ -70,6 +71,13 @@ assert.equal(parseTimeLabel("1:02:05"), 3725);
 assert.deepEqual(
   parseTimedBlocks("[00:05] merhaba dünya\n[1:02:05] ikinci blok\nzaman damgasız satır"),
   [{ sec: 5, text: "merhaba dünya" }, { sec: 3725, text: "ikinci blok" }, { sec: null, text: "zaman damgasız satır" }]
+);
+
+assert.equal(stripNonSpeech("(müzik) merhaba (alkış) dünya"), "merhaba dünya");
+assert.equal(stripNonSpeech("[Music]"), "");
+assert.deepEqual(
+  parseTimedBlocks("[00:05] merhaba dünya\n[00:10] (müzik)\n[00:15] devam ediyor"),
+  [{ sec: 5, text: "merhaba dünya" }, { sec: 15, text: "devam ediyor" }] // sadece "(müzik)" olan blok tamamen düşer
 );
 
 console.log(`Tüm mantık testleri geçti (${names.length} fonksiyon doğrulandı).`);

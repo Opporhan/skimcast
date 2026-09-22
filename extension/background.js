@@ -245,6 +245,16 @@ function parseTimeLabel(label) {
   return parts[0] * 3600 + parts[1] * 60 + parts[2];
 }
 
+// Otomatik altyazılar (YouTube/whisper) konuşma olmayan anları "(müzik)", "[Music]", "(alkış)" gibi
+// parantez/köşeli parantez içinde işaretliyor — bunlar gerçek konuşma değil, arama/çeviri/alıntıda
+// gürültü yaratıyor. Bilinen etiketleri (TR+EN) satırdan siler; satırın tamamı bir etiketten ibaretse
+// (ör. sadece "(müzik)") blok tamamen atlanır.
+const NON_SPEECH_RE = /[([](müzik|music|gülüşme\w*|laugh\w*|alkış\w*|applause|gürültü\w*|noise|sessizlik|silence|anlaşılamıyor|inaudible|crosstalk|arka plan( müziği| sesi)?|background( music| noise)?)[)\]]/gi;
+
+function stripNonSpeech(text) {
+  return text.replace(NON_SPEECH_RE, "").replace(/\s{2,}/g, " ").trim();
+}
+
 // Hem native (Python) tarafının hem de kendi toBlocks()'umuzun ürettiği "[mm:ss] metin" satırlarını
 // {sec, text} nesnelerine çevirir — görüntüleyici ve kütüphane (arama, tıkla-git, reklam tespiti)
 // bunun üzerinden çalışır. Zaman damgası yoksa (web sayfası) sec null kalır.
@@ -254,7 +264,10 @@ function parseTimedBlocks(text) {
     const line = raw.trim();
     if (!line) continue;
     const m = line.match(/^\[(\d{1,2}(?::\d{2}){1,2})\]\s?(.*)$/);
-    blocks.push(m ? { sec: parseTimeLabel(m[1]), text: m[2] } : { sec: null, text: line });
+    const sec = m ? parseTimeLabel(m[1]) : null;
+    const cleaned = stripNonSpeech(m ? m[2] : line);
+    if (!cleaned) continue; // satır sadece "(müzik)" gibi bir etiketti, atla
+    blocks.push({ sec, text: cleaned });
   }
   return blocks;
 }
