@@ -1,4 +1,7 @@
 // skimcast (uzantı): result.js — background.js'in chrome.storage.local'e yazdığı özeti okur, gösterir.
+// Özet akış (streaming) halinde geliyor: background.js metni yazıldıkça bu anahtara yazıyor, biz de
+// chrome.storage.onChanged ile dinleyip canlı güncelliyoruz (uzun videolarda boş ekranda beklemek yerine
+// metin yazılırken görünür).
 
 function t(key) { return chrome.i18n.getMessage(key) || key; }
 
@@ -42,12 +45,12 @@ async function init() {
   const app = document.getElementById("app");
   const id = new URLSearchParams(location.search).get("id");
   if (!id) { app.innerHTML = `<p class="error">${t("error_no_result")}</p>`; return; }
-
   const key = `skimcastResult:${id}`;
-  const { [key]: result } = await chrome.storage.local.get(key);
+
+  let result = (await chrome.storage.local.get(key))[key];
   if (!result) { app.innerHTML = `<p class="error">${t("error_result_not_found")}</p>`; return; }
 
-  const { meta, markdown } = result;
+  const meta = result.meta;
   document.title = meta.title || "skimcast";
   const metaLine = [meta.title, meta.duration, meta.method].filter(Boolean).join(" · ");
 
@@ -58,13 +61,37 @@ async function init() {
     </header>
     <div class="actions">
       <button id="copyBtn">${t("copy_btn")}</button>
+      <span id="statusLine" class="hint"></span>
     </div>
-    <div class="content">${renderMarkdown(markdown)}</div>
+    <div class="content" id="content"></div>
+    <p class="error" id="errorLine" hidden></p>
   `;
+
+  const contentEl = document.getElementById("content");
+  const statusEl = document.getElementById("statusLine");
+  const errorEl = document.getElementById("errorLine");
+
+  function render(r) {
+    contentEl.innerHTML = renderMarkdown(r.markdown || "");
+    statusEl.textContent = r.status === "streaming" ? t("status_streaming") : "";
+    if (r.status === "error") {
+      errorEl.hidden = false;
+      errorEl.textContent = (t("error_prefix") ? t("error_prefix") + " " : "") + (r.error || "");
+    } else {
+      errorEl.hidden = true;
+    }
+  }
+  render(result);
+
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[key]) return;
+    result = changes[key].newValue;
+    if (result) render(result);
+  });
 
   document.getElementById("copyBtn").addEventListener("click", async () => {
     try {
-      await navigator.clipboard.writeText(markdown);
+      await navigator.clipboard.writeText(result.markdown || "");
       const btn = document.getElementById("copyBtn");
       const original = btn.textContent;
       btn.textContent = t("copied");

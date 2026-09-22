@@ -8,7 +8,8 @@ body {
 header { margin-bottom: 20px; }
 h1 { font-size: 22px; margin: 0 0 6px; }
 .meta { color: #666; font-size: 13px; }
-.actions { margin: 18px 0; display: flex; gap: 8px; }
+.actions { margin: 18px 0; display: flex; gap: 8px; align-items: center; }
+.hint { color: #888; font-size: 13px; font-style: italic; }
 button {
   padding: 7px 14px; border: 1px solid #d0d0d5; border-radius: 6px; background: #fff;
   font-size: 13px; cursor: pointer;
