@@ -2,6 +2,9 @@
   "ext_name": {
     "message": "skimcast"
   },
+  "context_menu_fetch": {
+    "message": "skimcast: Get Transcript"
+  },
   "ext_description": {
     "message": "Paste a link, get a timestamped transcript — searchable, click-to-jump, ad-skip. YouTube, podcasts, articles. Fully local, no API calls."
   },

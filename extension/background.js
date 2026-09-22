@@ -297,24 +297,79 @@ async function saveToArchive(id, url, meta, blocks) {
 // atmıyoruz (bkz. proje geçmişi: Groq'un ücretsiz katman kotaları + servis çalışanının uzun işlerin
 // ortasında Chrome tarafından sonlandırılması bütün geceyi almıştı) — transcript alma saniyeler
 // sürdüğü için servis çalışanının ömrüyle ilgili bir risk de yok.
+// Hem popup'tan (mesajla) hem sağ tık menüsünden çağrıldığı için ortak bir fonksiyona çıkarıldı.
+async function fetchAndOpen(url) {
+  const t = await getTranscript(url, ["tr", "en"]);
+  const meta = t.native
+    ? { title: t.meta.title, method: t.meta.method, duration: t.meta.duration, linkPrefix: t.meta.link_prefix }
+    : { title: t.title, method: t.method, duration: t.duration ? fmtTime(t.duration) : "", linkPrefix: t.linkPrefix };
+  const text = t.native ? t.text : buildTranscriptText(t);
+  const blocks = parseTimedBlocks(text);
+
+  const id = stableId(url);
+  await saveToArchive(id, url, meta, blocks);
+  chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(id)}`) });
+  return meta;
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.action !== "fetch") return;
   (async () => {
     try {
-      const t = await getTranscript(msg.url, ["tr", "en"]);
-      const meta = t.native
-        ? { title: t.meta.title, method: t.meta.method, duration: t.meta.duration, linkPrefix: t.meta.link_prefix }
-        : { title: t.title, method: t.method, duration: t.duration ? fmtTime(t.duration) : "", linkPrefix: t.linkPrefix };
-      const text = t.native ? t.text : buildTranscriptText(t);
-      const blocks = parseTimedBlocks(text);
-
-      const id = stableId(msg.url);
-      await saveToArchive(id, msg.url, meta, blocks);
-      chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(id)}`) });
+      const meta = await fetchAndOpen(msg.url);
       sendResponse({ ok: true, meta });
     } catch (e) {
       sendResponse({ ok: false, error: e instanceof SkimError ? e.message : `Beklenmeyen hata: ${e.message || e}` });
     }
   })();
   return true; // asenkron yanıt
+});
+
+// ---------------------------------------------------------------- sağ tık menüsü
+// Popup'ı açıp linki yapıştırmaya gerek kalmadan, bir videoya/linke sağ tıklayıp doğrudan getirmek için.
+// Menü başlığı kullanıcının seçtiği arayüz diline göre (lang.js'in kullandığı aynı _locales/<dil>/
+// messages.json dosyalarından) oluşturuluyor; dil değişirse menü de tazeleniyor.
+const CONTEXT_MENU_ID = "skimcast-fetch";
+
+async function contextMenuTitle() {
+  const { skimcastUiLang } = await chrome.storage.local.get("skimcastUiLang");
+  const lang = skimcastUiLang || (chrome.i18n.getUILanguage().split("-")[0] === "tr" ? "tr" : "en");
+  try {
+    const res = await fetch(chrome.runtime.getURL(`_locales/${lang}/messages.json`));
+    const data = await res.json();
+    return data.context_menu_fetch?.message || "skimcast: Get Transcript";
+  } catch {
+    return "skimcast: Get Transcript";
+  }
+}
+
+async function setupContextMenu() {
+  const title = await contextMenuTitle();
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: CONTEXT_MENU_ID, title, contexts: ["page", "video", "link"] });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(setupContextMenu);
+chrome.runtime.onStartup.addListener(setupContextMenu);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.skimcastUiLang) setupContextMenu();
+});
+
+chrome.contextMenus.onClicked.addListener(async (info) => {
+  if (info.menuItemId !== CONTEXT_MENU_ID) return;
+  const url = info.linkUrl || info.pageUrl;
+  if (!url) return;
+  try {
+    const meta = await fetchAndOpen(url);
+    chrome.notifications.create({
+      type: "basic", iconUrl: "icons/icon128.png",
+      title: "skimcast", message: meta.title || "Transcript hazır.",
+    });
+  } catch (e) {
+    chrome.notifications.create({
+      type: "basic", iconUrl: "icons/icon128.png",
+      title: "skimcast", message: e instanceof SkimError ? e.message : `Beklenmeyen hata: ${e.message || e}`,
+    });
+  }
 });

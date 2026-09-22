@@ -2,6 +2,9 @@
   "ext_name": {
     "message": "skimcast"
   },
+  "context_menu_fetch": {
+    "message": "skimcast: Transcript'i Getir"
+  },
   "ext_description": {
     "message": "Linki yapıştır, zaman damgalı transcript'i al — arayabilir, tıkla-git yapabilir, reklamları atlayabilirsin. YouTube, podcast, makale. Tamamen yerel, hiçbir API'ye gitmez."
   },
