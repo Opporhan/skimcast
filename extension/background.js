@@ -243,16 +243,14 @@ ${text}
 --- TRANSCRIPT END ---`;
 }
 
-// Uzun videoda tam yanıtı beklemek (30-60 sn) boş bir ekrana bakmak gibi hissettiriyor. Gerçek üretim
-// süresi aynı kalsa da (bu kadar metni işlemek fiziksel olarak zaman alıyor), Gemini'nin akış (streaming)
-// modunu kullanıp metni yazıldıkça göstererek "hiç bitmiyor" hissini kaldırıyoruz — ilk kelimeler
-// genelde 1-2 saniye içinde görünür. onChunk her parça geldiğinde çağrılır.
-async function streamGeminiOnce(apiKey, prompt, maxOutputTokens, onChunk) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`;
+// Not: Akış (streaming) denendi ama gerçek bir API anahtarıyla hiç uçtan uca test edilemediği için
+// ayrıştırma hatalıydı ve sonsuza kadar "yazılıyor" gösterip hiç sonuç vermiyordu (her ham bayt
+// geldiğinde zaman aşımı sıfırlanıyor, ama metin hiç ayrıştırılamıyordu). Kaldırıldı; bunun yerine
+// kullanıcıyla iki kez gerçek çıktıyla doğrulanmış, tek istekli, tam yanıtı bekleyen basit yöntem var.
+async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const controller = new AbortController();
-  let timeout = setTimeout(() => controller.abort(), 60000);
-  const resetTimeout = () => { clearTimeout(timeout); timeout = setTimeout(() => controller.abort(), 60000); };
-
+  const timeout = setTimeout(() => controller.abort(), 120000); // uzun videoda 2 dk'ya kadar makul
   let res;
   try {
     res = await fetch(url, {
@@ -262,63 +260,35 @@ async function streamGeminiOnce(apiKey, prompt, maxOutputTokens, onChunk) {
       signal: controller.signal,
     });
   } catch (e) {
+    throw new SkimError(e.name === "AbortError" ? "Gemini 2 dakikada yanıt vermedi (zaman aşımı)." : `Gemini'ye bağlanılamadı: ${e.message}`);
+  } finally {
     clearTimeout(timeout);
-    throw new SkimError(e.name === "AbortError" ? "Gemini 60 saniyede yanıt vermedi (zaman aşımı)." : `Gemini'ye bağlanılamadı: ${e.message}`);
   }
+  const data = await res.json().catch(() => null);
   if (!res.ok) {
-    clearTimeout(timeout);
-    const data = await res.json().catch(() => null);
     const err = new SkimError(`Gemini hata döndürdü (${res.status}): ${data?.error?.message || "bilinmeyen hata"}.`);
     err.status = res.status;
     throw err;
   }
-
-  let full = "", finishReason = null, buf = "";
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      resetTimeout();
-      buf += decoder.decode(value, { stream: true });
-      const events = buf.split("\n\n");
-      buf = events.pop(); // tamamlanmamış son parça bir sonraki okumada birleşecek
-      for (const evt of events) {
-        const line = evt.split("\n").find((l) => l.startsWith("data:"));
-        if (!line) continue;
-        let obj;
-        try { obj = JSON.parse(line.slice(5).trim()); } catch { continue; }
-        const delta = obj?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
-        if (delta) { full += delta; onChunk(delta); }
-        finishReason = obj?.candidates?.[0]?.finishReason || finishReason;
-      }
-    }
-  } catch (e) {
-    if (e.name === "AbortError") throw new SkimError("Gemini yanıtı yarıda kesildi (zaman aşımı).");
-    throw new SkimError(`Akış okunurken hata: ${e.message}`);
-  } finally {
-    clearTimeout(timeout);
+  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+  if (!text.trim()) {
+    const reason = data?.candidates?.[0]?.finishReason;
+    throw new SkimError(`Gemini boş yanıt döndürdü${reason ? ` (${reason})` : ""}.`);
   }
-  if (!full.trim()) throw new SkimError(`Gemini boş yanıt döndürdü${finishReason ? ` (${finishReason})` : ""}.`);
-  return { text: full.trim(), truncated: finishReason === "MAX_TOKENS" };
+  return text.trim();
 }
 
 // Geçici hatalar: 429 (dakikalık hız sınırı) ve 503 (Google tarafında yoğunluk) — ikisi de kısa süre
-// sonra kendiliğinden düzeliyor. Yalnızca hiç parça almadan başarısız olursa (kısmi metni çöpe atmamak
-// için) yeniden dener. Tek üretim, tek token bütçesi: iki kez baştan üretmek (bir öncekinin hatası)
-// süreyi ikiye katlıyordu ve metni tekrarlıyordu — kesilme nadir ve kabul edilebilir bir risk.
+// sonra kendiliğinden düzeliyor. Kullanıcıya çiğ hata göstermeden birkaç kez, artan gecikmeyle tekrar dene.
 const RETRYABLE_STATUS = new Set([429, 503]);
 
-async function streamGemini(apiKey, prompt, onChunk) {
+async function callGemini(apiKey, prompt) {
   const delays = [1000, 3000, 8000];
   for (let i = 0; ; i++) {
-    let receivedAny = false;
     try {
-      const { text } = await streamGeminiOnce(apiKey, prompt, 8192, (d) => { receivedAny = true; onChunk(d); });
-      return text;
+      return await callGeminiOnce(apiKey, prompt, 8192);
     } catch (e) {
-      if (receivedAny || !RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
+      if (!RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
         if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
         throw e;
       }
@@ -360,21 +330,15 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const text = t.native ? t.text : buildTranscriptText(t);
 
       const id = crypto.randomUUID();
-      await chrome.storage.local.set({ [resultKey(id)]: { meta, markdown: "", status: "streaming", ts: Date.now() } });
+      await chrome.storage.local.set({ [resultKey(id)]: { meta, markdown: "", status: "loading", ts: Date.now() } });
       chrome.tabs.create({ url: chrome.runtime.getURL(`result.html?id=${id}`) });
       sendResponse({ ok: true, meta }); // popup burada rahatça kapanabilir, işi arka planda bitiriyoruz
 
-      let acc = "";
-      let pending = false;
-      const flush = () => { pending = false; setResult(id, { markdown: acc }); };
       try {
-        await streamGemini(apiKey, buildPrompt(meta, text, msg.langName || "English"), (delta) => {
-          acc += delta;
-          if (!pending) { pending = true; setTimeout(flush, 150); } // her parçada değil, ~150ms'de bir yaz
-        });
-        await setResult(id, { markdown: acc, status: "done" });
+        const markdown = await callGemini(apiKey, buildPrompt(meta, text, msg.langName || "English"));
+        await setResult(id, { markdown, status: "done" });
       } catch (e) {
-        await setResult(id, { markdown: acc, status: "error", error: e instanceof SkimError ? e.message : String(e.message || e) });
+        await setResult(id, { status: "error", error: e instanceof SkimError ? e.message : String(e.message || e) });
       }
     } catch (e) {
       sendResponse({ ok: false, error: e instanceof SkimError ? e.message : `Beklenmeyen hata: ${e.message || e}` });

@@ -61,19 +61,20 @@ async function init() {
     </header>
     <div class="actions">
       <button id="copyBtn">${t("copy_btn")}</button>
-      <span id="statusLine" class="hint"></span>
     </div>
     <div class="content" id="content"></div>
     <p class="error" id="errorLine" hidden></p>
   `;
 
   const contentEl = document.getElementById("content");
-  const statusEl = document.getElementById("statusLine");
   const errorEl = document.getElementById("errorLine");
 
   function render(r) {
-    contentEl.innerHTML = renderMarkdown(r.markdown || "");
-    statusEl.textContent = r.status === "streaming" ? t("status_streaming") : "";
+    if (r.status === "loading") {
+      contentEl.innerHTML = `<p class="hint">${t("status_loading")}</p>`;
+    } else {
+      contentEl.innerHTML = renderMarkdown(r.markdown || "");
+    }
     if (r.status === "error") {
       errorEl.hidden = false;
       errorEl.textContent = (t("error_prefix") ? t("error_prefix") + " " : "") + (r.error || "");
