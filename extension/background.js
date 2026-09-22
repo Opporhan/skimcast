@@ -323,18 +323,26 @@ async function callGroqOnce(apiKey, prompt, maxTokens, model) {
   return text.trim();
 }
 
-// Geçici hatalar: 429 (hız sınırı) ve 503 (Groq tarafında yoğunluk). Yalnızca BİR kez yeniden dener
-// (her deneme uzun bir video için 90 saniyeye kadar sürebiliyor; birden çok deneme dakikalarca sürüp
-// "hiç bitmiyor" hissi veriyordu). Sunucunun belirttiği bekleme süresi varsa onu kullanır (en fazla 15sn).
+// Geçici hatalar: 429 (hız sınırı) ve 503 (Groq tarafında yoğunluk). 429'da Groq bize tam olarak ne
+// kadar bekleyeceğimizi söylüyor (ör. "9.6s sonra tekrar dene") — bu süreye güvenip, dakikalık TPM
+// penceresi gerçekten boşalana kadar birkaç kez deneriz (tek deneme çoğu zaman yetmiyordu, çünkü art
+// arda gelen chunk istekleri aynı dakikalık pencereye üst üste biniyor). Toplam bekleme 60sn'yi
+// geçmeyecek şekilde sınırlıyoruz ki uzun bir video "hiç bitmiyor" hissi vermesin.
 const RETRYABLE_STATUS = new Set([429, 503]);
+const MAX_RETRY_WAIT_MS = 60000;
 
 async function callGroqWithRetry(apiKey, prompt, maxTokens, model) {
-  try {
-    return await callGroqOnce(apiKey, prompt, maxTokens, model);
-  } catch (e) {
-    if (!RETRYABLE_STATUS.has(e.status)) throw e;
-    await new Promise((r) => setTimeout(r, Math.min(e.retryDelayMs ?? 3000, 15000)));
-    return await callGroqOnce(apiKey, prompt, maxTokens, model);
+  let totalWaited = 0;
+  for (;;) {
+    try {
+      return await callGroqOnce(apiKey, prompt, maxTokens, model);
+    } catch (e) {
+      if (!RETRYABLE_STATUS.has(e.status)) throw e;
+      const wait = Math.min(e.retryDelayMs ?? 3000, 20000);
+      if (totalWaited + wait > MAX_RETRY_WAIT_MS) throw e;
+      totalWaited += wait;
+      await new Promise((r) => setTimeout(r, wait));
+    }
   }
 }
 
