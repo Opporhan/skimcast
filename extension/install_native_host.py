@@ -13,9 +13,9 @@ import sys
 sys.dont_write_bytecode = True  # bu klasörde __pycache__ oluşmasın: Chrome/Edge "_" ile başlayan
 # klasör/dosya adlarını (extension/ paketlenmemiş öğe olarak yüklenirken) reddediyor
 
-import json  # noqa: E402
-import stat  # noqa: E402
-from pathlib import Path  # noqa: E402
+import json
+import stat
+from pathlib import Path
 
 HOST_NAME = "com.skimcast.native_host"
 EXTENSION_ID = "fkhohoagmipbmdabglegihkclhelefna"  # extension/manifest.json'daki "key" alanından türetildi

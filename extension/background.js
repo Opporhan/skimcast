@@ -236,11 +236,7 @@ Source: ${meta.title || "(title unavailable)"}
 Method: ${meta.method}${meta.duration ? ` · duration ${meta.duration}` : ""}
 ${note}
 
-Write the summary in ${langName}, using this markdown format:
-
-**General summary** — flowing paragraph(s), length scaled to content (short: 4-6 sentences; hours-long content: several paragraphs). No filler, every sentence should carry information.
-
-**Minute by minute** — chronological bullet list, one concrete fact per line: "[mm:ss] what is said/shown."${meta.linkPrefix ? ` Make each timestamp a link: [mm:ss](${meta.linkPrefix}SECONDS) where SECONDS = minutes*60+seconds.` : ""}
+Write a single, detailed, flowing summary in ${langName} — several well-developed paragraphs covering the content in order (topics, arguments, examples, numbers, conclusions), scaled to how much material there is. No timestamps, no bullet list, no filler — every sentence should carry real information, as if explaining the content thoroughly to someone who hasn't seen it.
 
 --- TRANSCRIPT START ---
 ${text}

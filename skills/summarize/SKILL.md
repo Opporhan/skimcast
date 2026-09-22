@@ -37,20 +37,15 @@ Yalnızca transcript'te olanı yaz; bilgi uydurma, çıkarım yapıyorsan öyle 
 
 **Başlık** (`title`) · süre · kaynak yöntemi
 
-**Genel özet** — akıcı paragraf(lar): içerik ne anlatıyor, ana fikirler ve argümanlar neler, varsa örnekler, sonuç ya da öneri. Uzunluğu süreye göre ölçekle:
-- 10 dk'ya kadar: 4–6 cümle (1 paragraf)
-- 10–30 dk: 1–2 paragraf (yaklaşık 8–12 cümle)
-- 30–90 dk: 2–4 paragraf
-- 90 dk üstü: 4–6 paragraf; içerik birden çok konuya bölünüyorsa her ana konuya kısa bir paragraf ver, çok saatlik kurslarda bölümleri de bu paragraflarda topla
+**Genel özet** — tek, detaylı, akıcı özet: birden çok paragraf, içeriği baştan sona sırasıyla kapsar (konular, argümanlar, örnekler, rakamlar, sonuçlar). Zaman damgası ve madde listesi yok; süreye göre ölçekle:
+- 10 dk'ya kadar: 2–3 paragraf
+- 10–30 dk: 3–5 paragraf
+- 30–90 dk: 5–8 paragraf
+- 90 dk üstü: içerik birden çok konuya bölünüyorsa her ana konuya bir-iki paragraf ayır, çok saatlik kurslarda bölümleri de bu paragraflarda topla
 Doldurma yapma: uzunluk daha çok bilgi, örnek ve rakam taşımak içindir, tekrar için değil. Web sayfası metninde uzunluğu metnin boyuna göre ayarla.
 
-**Dakikalara göre** — genel özetin altında kronolojik liste; her satır tek bir somut bilgi (1–2 cümle):
-`[mm:ss] ne anlatılıyor / ne söyleniyor`
-Sıklık: kısa içerikte yaklaşık her 1–2 dakikada, uzunda konu değişimlerinde bir satır (genelde 8–25 satır). Süreyi tam kapsa; ortadaki bir bölümü atlama.
-`link_prefix` varsa damgayı bağlantı yap: saniye = dakika×60 + saniye, örn. `[12:34](<link_prefix>754)`. Yoksa düz `[12:34]` yaz. 1 saati aşan içerikte `h:mm:ss` kullan. Web sayfası metninde damga yoktur; bu durumda "Dakikalara göre" yerine **Ana başlıklar** adıyla damgasız maddeler yaz.
-
 ### Uzun içerik
-Parçalara böldüyse her parçayı oku, o parçanın damgalı satırlarını ara not olarak tut; sonra tüm parçalardan tek bir genel özet yaz ve satırları parça sırasıyla, tekrarsız birleştir. Zaman damgalarını koru.
+Parçalara böldüyse her parçayı oku, kısa ara notlar tut; sonra tüm parçalardan tek, tekrarsız bir genel özet yaz.
 
 ### Kalite kuralları
 - Kısa ve yoğun yaz; doldurma cümlesi yok. Kısa içerikte özet 1 dakikada okunabilmeli; uzun içerikte genel özet uzar ama her cümle bilgi taşımalı.
