@@ -223,14 +223,13 @@ function buildTranscriptText(t) {
 // console.groq.com) çok daha cömert, o yüzden buraya geçildi.
 // Groq'un model adları zaman zaman değişiyor/emekliye ayrılıyor, ayrıca bazı modellere hesap seviyesine
 // göre erişim kısıtlı olabiliyor (geçersiz anahtarla test etmek işe yaramıyor: Groq önce anahtarı
-// kontrol ediyor, model adına hiç bakmıyor). Liste console.groq.com/docs/models'teki güncel üretim
-// modellerinden alındı; küçük/hızlı olan önce (erişim kısıtlamasına daha az takılıyor), sırayla dener.
-const GROQ_MODELS = [
-  "llama-3.1-8b-instant",
-  "openai/gpt-oss-20b",
-  "llama-3.3-70b-versatile",
-  "openai/gpt-oss-120b",
-];
+// kontrol ediyor, model adına hiç bakmıyor). Liste console.groq.com/docs/rate-limits'teki güncel
+// ücretsiz plan tablosundan doğrulandı (2026-09-22): llama-3.1-8b-instant ve llama-3.3-70b-versatile
+// artık ücretsiz planda YOK (tablo dışında, her istekte 404), o yüzden listeden çıkarıldı — boşuna
+// bir round-trip harcamasınlar. Kalan ikisinin (gpt-oss-20b, gpt-oss-120b) HER BİRİNİN kendi ayrı
+// dakikalık bütçesi (TPM 8000) var; bu yüzden parça notları çıkarılırken ikisi arasında sırayla
+// (round-robin) geçilir — tek modele yığılmak yerine iki ayrı bütçe paralel kullanılmış olur.
+const GROQ_MODELS = ["openai/gpt-oss-20b", "openai/gpt-oss-120b"];
 
 function reliabilityNote(method) {
   if (/otomatik|whisper/.test(method)) return "This transcript is auto-generated; names and numbers may contain errors.";
@@ -355,11 +354,12 @@ function isModelUnavailable(e) {
   return e.status === 400 && /decommission|does not exist|no longer supported|not found/i.test(e.message);
 }
 
-// GROQ_MODELS'i sırayla dener: model kullanılamıyorsa bir sonrakine geçer, böylece Groq bir modeli
-// emekliye ayırırsa, erişimi kısıtlarsa ya da bütçesi yetmezse uzantı elle düzeltmeden çalışmaya devam eder.
-async function callGroq(apiKey, prompt, maxTokens = 4096) {
+// GROQ_MODELS'i (ya da verilen `models` sırasını) sırayla dener: model kullanılamıyorsa bir sonrakine
+// geçer, böylece Groq bir modeli emekliye ayırırsa, erişimi kısıtlarsa ya da bütçesi yetmezse uzantı
+// elle düzeltmeden çalışmaya devam eder.
+async function callGroq(apiKey, prompt, maxTokens = 4096, models = GROQ_MODELS) {
   let lastErr;
-  for (const model of GROQ_MODELS) {
+  for (const model of models) {
     try {
       return await callGroqWithRetry(apiKey, prompt, maxTokens, model);
     } catch (e) {
@@ -378,9 +378,9 @@ async function callGroq(apiKey, prompt, maxTokens = 4096) {
 // bu tek bir parça için normal, tüm uzun video özetini iptal etmesin. Ama hız sınırı/bağlantı gibi GERÇEK
 // hataları burada yutmuyoruz (önceki sürüm hepsini yutuyordu, bu yüzden asıl sebep görünmüyordu) — bunlar
 // yukarı fırlatılır ki kullanıcı gerçek sebebi görsün.
-async function noteForChunk(apiKey, chunk, index, total, emptyReasons) {
+async function noteForChunk(apiKey, chunk, index, total, emptyReasons, models) {
   try {
-    return await callGroq(apiKey, chunkPrompt(chunk, index, total), 1500);
+    return await callGroq(apiKey, chunkPrompt(chunk, index, total), 1500, models);
   } catch (e) {
     if (e.message && e.message.includes("boş yanıt")) { emptyReasons.push(e.message); return ""; }
     throw e;
@@ -391,7 +391,9 @@ async function notesForChunks(apiKey, chunks) {
   const notes = [];
   const emptyReasons = [];
   for (let i = 0; i < chunks.length; i++) {
-    notes.push(await noteForChunk(apiKey, chunks[i], i, chunks.length, emptyReasons));
+    // her parçada birincil modeli değiştir: iki modelin ayrı TPM bütçesini paralel kullanmış oluruz
+    const models = i % 2 === 0 ? GROQ_MODELS : [...GROQ_MODELS].reverse();
+    notes.push(await noteForChunk(apiKey, chunks[i], i, chunks.length, emptyReasons, models));
     if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 400)); // art arda hız sınırına çarpmayalım
   }
   const good = notes.filter((n) => n.trim());
