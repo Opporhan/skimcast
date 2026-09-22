@@ -48,7 +48,9 @@ header { margin-bottom: 24px; }
 #langBtn:hover { filter: brightness(.95); }
 h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em; }
 .meta { color: var(--text-muted); font-size: 13px; }
-.star-ico { color: #f5b400; } /* ★ CSS color'a uyuyor (emoji değil), bu yüzden gerçekten sarı boyanabiliyor */
+/* Boşken (☆) koyu/belirgin, aktif olunca (★) sarı/altın — ★ CSS color'a uyuyor (emoji değil). */
+.star-ico { color: var(--text); }
+.toggle-btn.active .star-ico { color: #f5b400; }
 
 /* Sadece arama satırı sabit (sticky) kalıyor; aksiyon düğmeleri ve çeviri satırı normal akışta — birden
    fazla sticky satırı üst üste bindirmek konumlandırmayı kırılgan yapıyordu. */

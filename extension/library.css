@@ -38,7 +38,8 @@ body {
   color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
 }
 #langBtn:hover { filter: brightness(.95); }
-.star-ico { color: #f5b400; }
+.star-ico { color: var(--text); }
+.toggle-btn.active .star-ico { color: #f5b400; }
 h1 { font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -.02em; }
 h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 10px; }
 
@@ -134,8 +135,8 @@ button:hover { filter: brightness(.96); }
   background: var(--bg); border-radius: 16px; padding: 22px; width: 300px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, .25);
 }
-.modal-large { width: min(600px, 92vw); }
-.snippet-edit-large { min-height: 220px; font-size: 15px; line-height: 1.6; padding: 16px; }
+.modal-large { width: min(680px, 94vw); }
+.snippet-edit-large { min-height: 280px; font-size: 15px; line-height: 1.6; padding: 16px; }
 .modal h2 { font-size: 15px; color: var(--text); text-transform: none; letter-spacing: 0; margin: 0 0 14px; }
 .modal input {
   width: 100%; padding: 10px 12px; border: none; border-radius: 10px; font-size: 14px;

@@ -136,9 +136,9 @@ function openFolderModal(existing) {
       if (!name) { input.focus(); return; }
       close({ action: "save", name, icon });
     });
-    overlay.querySelector("#modalDelete")?.addEventListener("click", () => {
-      if (confirm(t("delete_folder_confirm"))) close({ action: "delete" });
-    });
+    // Tarayıcının kendi confirm() penceresi ekranın üstünden, ortalanmamış çıkıyordu — kaldırıldı,
+    // "Sil" artık doğrudan siliyor.
+    overlay.querySelector("#modalDelete")?.addEventListener("click", () => close({ action: "delete" }));
   });
 }
 
@@ -316,7 +316,7 @@ async function init() {
         <option value="oldest">${t("sort_oldest")}</option>
         <option value="title">${t("sort_title")}</option>
       </select>
-      <button id="favViewBtn" class="toggle-btn"><span class="star-ico">★</span> ${t("fav_view_btn")}</button>
+      <button id="favViewBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_view_btn")}</button>
     </div>
     <div id="list"></div>
     <div id="toast" class="toast"></div>
@@ -405,6 +405,7 @@ async function init() {
   favViewBtn.addEventListener("click", () => {
     favView = !favView;
     favViewBtn.classList.toggle("active", favView);
+    favViewBtn.querySelector(".star-ico").textContent = favView ? "★" : "☆";
     searchInput.disabled = favView;
     sortSelect.disabled = favView;
     render();

@@ -104,8 +104,8 @@
   "modal_delete": {
     "message": "Sil"
   },
-  "delete_folder_confirm": {
-    "message": "Bu klasörü sil? İçindeki videolar silinmez, sadece \"Genel\"e taşınır."
+  "move_failed_toast": {
+    "message": "Taşınamadı, tekrar dene."
   },
   "fav_view_btn": {
     "message": "Favoriler"

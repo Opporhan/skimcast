@@ -87,7 +87,10 @@ async function init() {
   document.title = meta.title || "skimcast";
   // Başlık zaten yukarıdaki h1'de var — burada tekrarlamıyoruz, yöntemi ("youtube-altyazı (en, otomatik)"
   // gibi) de göstermiyoruz çünkü kullanıcıya bir anlam ifade etmiyor. Sadece video/podcast süresi kalıyor.
-  const metaLine = meta.duration || "";
+  // meta.duration bazı kaynaklarda (podcast RSS, web sayfası) hep boş/0 geliyor — o durumda transcript'in
+  // son zaman damgasından yaklaşık süreyi kendimiz hesaplıyoruz, tamamen boş kalmasın.
+  const lastSec = [...blocks].reverse().find((b) => b.sec != null)?.sec;
+  const metaLine = meta.duration || (lastSec != null ? fmtTime(lastSec) : "");
   const canTranslate = typeof Translator !== "undefined";
 
   app.innerHTML = `
@@ -106,7 +109,7 @@ async function init() {
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
     </div>
     <div class="action-row">
-      <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">★</span> ${t("fav_only_btn")}</button>
+      <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_only_btn")}</button>
       <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
       <button id="moveBtn">${t("move_to_folder_btn")}</button>
       <button id="copyBtn">${t("copy_btn")}</button>
@@ -172,9 +175,13 @@ async function init() {
   // Tek bir favoriyi (yıldızlanmış an) bir klasöre atar — videonun kendisini taşımaktan farklı,
   // sadece bu belirli anı ilgilendirir. FOLDERS_KEY/getFolders/openMoveToFolderModal aşağıda tanımlı
   // (fonksiyon bildirimleri hoisted olduğu için burada, tanımdan önce çağırmak sorun değil).
+  // Yazma sonrası depodan TEKRAR OKUYUP doğruluyoruz — "taşındı" demek için gerçekten kaydedilmiş
+  // olması gerekiyor, aksi halde sessizce yanlış bir onay vermiş oluruz.
   async function assignHighlightFolder(hKey, folderName) {
     entry.highlights = entry.highlights.map((h) => (h.key === hKey ? { ...h, folder: folderName } : h));
     await persistHighlights();
+    const { [key]: saved } = await chrome.storage.local.get(key);
+    return saved?.highlights?.find((h) => h.key === hKey)?.folder === folderName;
   }
 
   // includeTimestamps verilmezse ekrandaki o anki tercihi (showTimestamps) kullanır — kopyala böyle
@@ -221,10 +228,14 @@ async function init() {
     }
 
     // Favoriyi kendi klasörüne taşıma — sadece yıldızlandıktan sonra anlamlı, o yüzden başta gizli.
+    // Şu an hangi klasörde olduğu düğmenin üzerinde görünüyor (📁 Genel / 📁 Klasör adı) — taşımanın
+    // gerçekten işe yarayıp yaramadığını başka bir sayfaya gitmeden burada görebilesin diye.
     const folderBtn = document.createElement("button");
     folderBtn.className = "star-folder-btn";
+    const setFolderLabel = (name) => { folderBtn.textContent = name ? `📁 ${name}` : "📁"; };
+    const currentHighlight = () => entry.highlights.find((h) => h.key === highlightKey(i));
+    setFolderLabel(currentHighlight()?.folder);
     folderBtn.title = t("move_to_folder_title");
-    folderBtn.textContent = "📁";
     folderBtn.hidden = !isHighlighted(i);
     folderBtn.addEventListener("click", async (ev) => {
       ev.stopPropagation();
@@ -237,8 +248,13 @@ async function init() {
           await chrome.storage.local.set({ [FOLDERS_KEY]: existing });
         }
       }
-      await assignHighlightFolder(highlightKey(i), result.folder);
-      showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
+      const ok = await assignHighlightFolder(highlightKey(i), result.folder);
+      if (ok) {
+        setFolderLabel(result.folder);
+        showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
+      } else {
+        showToast(t("move_failed_toast"));
+      }
     });
 
     const starBtn = document.createElement("button");
@@ -290,6 +306,7 @@ async function init() {
   favOnlyBtn.addEventListener("click", () => {
     favOnlyOn = !favOnlyOn;
     favOnlyBtn.classList.toggle("active", favOnlyOn);
+    favOnlyBtn.querySelector(".star-ico").textContent = favOnlyOn ? "★" : "☆";
     applyFilters();
   });
 

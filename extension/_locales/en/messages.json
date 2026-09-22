@@ -104,8 +104,8 @@
   "modal_delete": {
     "message": "Delete"
   },
-  "delete_folder_confirm": {
-    "message": "Delete this folder? Its videos won't be deleted, just moved to \"General\"."
+  "move_failed_toast": {
+    "message": "Couldn't move it, try again."
   },
   "fav_view_btn": {
     "message": "Favorites"
