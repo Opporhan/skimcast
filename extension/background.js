@@ -243,14 +243,14 @@ ${text}
 --- TRANSCRIPT END ---`;
 }
 
-async function callGeminiOnce(apiKey, prompt) {
+async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   let res;
   try {
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens: 3072 } }),
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.3, maxOutputTokens } }),
     });
   } catch (e) {
     throw new SkimError(`Gemini'ye bağlanılamadı: ${e.message}`);
@@ -262,11 +262,11 @@ async function callGeminiOnce(apiKey, prompt) {
     throw err;
   }
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+  const finishReason = data?.candidates?.[0]?.finishReason;
   if (!text.trim()) {
-    const reason = data?.candidates?.[0]?.finishReason;
-    throw new SkimError(`Gemini boş yanıt döndürdü${reason ? ` (${reason})` : ""}.`);
+    throw new SkimError(`Gemini boş yanıt döndürdü${finishReason ? ` (${finishReason})` : ""}.`);
   }
-  return text.trim();
+  return { text: text.trim(), truncated: finishReason === "MAX_TOKENS" };
 }
 
 // Geçici hatalar: 429 (dakikalık hız sınırı) ve 503 (Google tarafında yoğunluk) — ikisi de kısa süre
@@ -275,15 +275,23 @@ const RETRYABLE_STATUS = new Set([429, 503]);
 
 async function callGemini(apiKey, prompt) {
   const delays = [1000, 3000, 8000];
-  for (let i = 0; ; i++) {
-    try {
-      return await callGeminiOnce(apiKey, prompt);
-    } catch (e) {
-      if (!RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
-        if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
-        throw e;
+  // Uzun/yoğun içerikte özet token limitine takılıp yarım kesilebilir; kesilirse daha yüksek bir
+  // limitle bir kez daha dene (özetin tam bitmesi hızdan daha önemli).
+  const tokenBudgets = [8192, 16000];
+  for (const maxOutputTokens of tokenBudgets) {
+    for (let i = 0; ; i++) {
+      try {
+        const { text, truncated } = await callGeminiOnce(apiKey, prompt, maxOutputTokens);
+        if (!truncated) return text;
+        if (maxOutputTokens === tokenBudgets[tokenBudgets.length - 1]) return text; // elimizdeki en iyisi bu
+        break; // bir üst token bütçesiyle tekrar dene
+      } catch (e) {
+        if (!RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
+          if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
+          throw e;
+        }
+        await new Promise((r) => setTimeout(r, delays[i]));
       }
-      await new Promise((r) => setTimeout(r, delays[i]));
     }
   }
 }
