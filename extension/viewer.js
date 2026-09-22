@@ -72,14 +72,15 @@ async function detectSourceLanguage(sampleText) {
   }
 }
 
-// Cihaz üzerindeki çeviri motoru bazı girdilerde "<b9000></b900>" gibi anlamsız, kendi iç etiketlerini
-// sızdırabiliyor (bilinen bir model tuhaflığı, hangi dilden hangi dile olursa olsun görülebiliyor).
-// Bunları temizliyoruz; temizlik sonrası metin boş kalırsa (tamamen sızıntıdan ibaretse) orijinal
-// metne düşüyoruz — hiçbir zaman bozuk/anlamsız bir çıktı gösterilmiyor.
+// Cihaz üzerindeki çeviri motoru bazı girdilerde "<b9000></b900>" ya da ">> >>" gibi anlamsız, kendi
+// iç işaretleyicilerini sızdırabiliyor (bilinen bir model tuhaflığı, hangi dilden hangi dile olursa
+// olsun görülebiliyor). Bunları temizliyoruz; temizlik sonrası metin boş kalırsa (tamamen sızıntıdan
+// ibaretse) orijinal metne düşüyoruz — hiçbir zaman bozuk/anlamsız bir çıktı gösterilmiyor.
 const LEAKED_TAG_RE = /<\/?[a-zA-Z][a-zA-Z0-9]*\/?>/g;
+const LEAKED_QUOTE_RE = />{2,}(\s*>+)*/g; // ">>", ">> >>" gibi tekrarlı ok/alıntı işaretleri
 function cleanTranslation(text, fallback) {
   if (!text) return fallback;
-  const cleaned = text.replace(LEAKED_TAG_RE, "").replace(/\s{2,}/g, " ").trim();
+  const cleaned = text.replace(LEAKED_TAG_RE, "").replace(LEAKED_QUOTE_RE, "").replace(/\s{2,}/g, " ").trim();
   return cleaned || fallback;
 }
 
