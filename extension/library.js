@@ -343,11 +343,19 @@ async function init() {
   let favView = false;
   let activeFolder = null; // null = Tümü
 
-  function countFor(name) {
-    return name === null ? index.length : index.filter((e) => e.folder === name).length;
+  // Bir klasörün "içeriği" hem o klasöre atanmış VİDEOLARDAN hem de o klasöre taşınmış FAVORİLERDEN
+  // oluşuyor — ikisi ayrı sistemlerdi (video.folder / highlight.folder), bu yüzden bir favoriyi
+  // klasöre taşımak "taşındı" diyordu ama o klasöre tıklayınca (sadece videoları gösteren renderList)
+  // hiçbir şey görünmüyordu, sayaç da sadece videoları saydığı için 0 kalıyordu. Artık ikisi de aynı
+  // sayımda ve aynı listede birleşiyor.
+  function countFor(name, allHighlights) {
+    if (name === null) return index.length; // "Tümü" = video kütüphanesi
+    const videoCount = index.filter((e) => e.folder === name).length;
+    const favCount = allHighlights.filter((h) => (h.folder || NO_FOLDER) === name).length;
+    return videoCount + favCount;
   }
 
-  function renderFolderCards() {
+  function renderFolderCards(allHighlights) {
     const cards = [{ name: null, label: t("all_folders"), icon: "🗂️", system: true },
       ...folders.map((f) => ({ name: f.name, label: f.name, icon: f.icon }))];
     foldersEl.innerHTML = cards.map((f) => `
@@ -355,25 +363,30 @@ async function init() {
         ${!f.system ? `<button class="folder-edit-btn" data-folder="${escapeHtml(f.name)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>` : ""}
         <span class="folder-icon">${iconHtml(f.icon)}</span>
         <span class="folder-name">${escapeHtml(f.label)}</span>
-        <span class="folder-count">${countFor(f.name)}</span>
+        <span class="folder-count">${countFor(f.name, allHighlights)}</span>
       </div>`).join("") +
       `<button class="folder-card folder-card-add" id="newFolderBtn">
         <span class="folder-icon">＋</span>
         <span class="folder-name">${t("new_folder_option").replace("…", "")}</span>
       </button>`;
-    // Klasörler bölümü hem video listesini hem favorileri aynı şekilde filtrelemek için kullanılıyor,
-    // bu yüzden favoriler görünümünde de gizlenmiyor.
   }
 
-  function renderList() {
+  // Belirli bir klasördeyken (Tümü değil) o klasördeki videoları VE favorileri aynı listede gösterir —
+  // "klasöre taşı" artık gerçekten o klasörün normal içeriğine düşüyor, ayrı bir sekmede gizli kalmıyor.
+  function renderList(allHighlights) {
     const filtered = activeFolder === null ? index : index.filter((e) => e.folder === activeFolder);
     const sorted = sortIndex(filtered, sortSelect.value);
-    listEl.innerHTML = sorted.length ? sorted.map((e) => entryRowHtml(e, folders)).join("") : `<p class="hint">${t("library_empty")}</p>`;
+    let html = sorted.map((e) => entryRowHtml(e, folders)).join("");
+    if (activeFolder !== null) {
+      const favsHere = allHighlights.filter((h) => (h.folder || NO_FOLDER) === activeFolder);
+      html += favsHere.map(highlightRowHtml).join("");
+    }
+    listEl.innerHTML = html || `<p class="hint">${t("library_empty")}</p>`;
   }
 
   async function renderSearch(query) {
     const results = await searchArchive(query, index);
-    if (results === null) { renderList(); return; }
+    if (results === null) { renderList(await getAllHighlights(index)); return; }
     listEl.innerHTML = results.length
       ? results.map((r) => `
           <div class="row">
@@ -386,19 +399,19 @@ async function init() {
       : `<p class="hint">${t("no_matches")}</p>`;
   }
 
-  async function renderFavorites() {
-    const all = await getAllHighlights(index);
-    const filtered = activeFolder === null ? all : all.filter((h) => (h.folder || NO_FOLDER) === activeFolder);
+  function renderFavoritesView(allHighlights) {
+    const filtered = activeFolder === null ? allHighlights : allHighlights.filter((h) => (h.folder || NO_FOLDER) === activeFolder);
     listEl.innerHTML = filtered.length ? filtered.map(highlightRowHtml).join("") : `<p class="hint">${t("no_favorites")}</p>`;
   }
 
-  function render() {
-    renderFolderCards();
-    if (favView) { renderFavorites(); return; }
-    searchInput.value.trim() ? renderSearch(searchInput.value) : renderList();
+  async function render() {
+    const allHighlights = await getAllHighlights(index);
+    renderFolderCards(allHighlights);
+    if (favView) { renderFavoritesView(allHighlights); return; }
+    searchInput.value.trim() ? await renderSearch(searchInput.value) : renderList(allHighlights);
   }
 
-  render();
+  await render();
 
   searchInput.addEventListener("input", () => { if (!favView) render(); });
   sortSelect.addEventListener("change", render);
