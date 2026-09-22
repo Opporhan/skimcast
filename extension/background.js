@@ -301,10 +301,18 @@ async function callGroqOnce(apiKey, prompt, maxTokens, model) {
   }
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const err = new SkimError(`Groq hata döndürdü (${res.status}): ${data?.error?.message || "bilinmeyen hata"}.`);
+    const msg = data?.error?.message || "bilinmeyen hata";
+    const err = new SkimError(`Groq hata döndürdü (${res.status}): ${msg}.`);
     err.status = res.status;
+    // Groq bekleme süresini "Retry-After" header'ı yerine çoğunlukla hata metninin içinde veriyor
+    // (ör. "Please try again in 10.3275s"); header yoksa metinden okuyoruz.
     const retryAfter = res.headers.get("retry-after");
-    err.retryDelayMs = retryAfter ? Math.ceil(parseFloat(retryAfter) * 1000) : null;
+    const msgMatch = !retryAfter && /try again in (\d+(?:\.\d+)?)(ms|s)/i.exec(msg);
+    err.retryDelayMs = retryAfter
+      ? Math.ceil(parseFloat(retryAfter) * 1000)
+      : msgMatch
+        ? Math.ceil(parseFloat(msgMatch[1]) * (msgMatch[2].toLowerCase() === "s" ? 1000 : 1))
+        : null;
     throw err;
   }
   const text = data?.choices?.[0]?.message?.content || "";
