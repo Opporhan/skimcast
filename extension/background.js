@@ -308,7 +308,10 @@ async function callGroqOnce(apiKey, prompt, maxTokens, model) {
     throw err;
   }
   const text = data?.choices?.[0]?.message?.content || "";
-  if (!text.trim()) throw new SkimError("Groq boş yanıt döndürdü.");
+  if (!text.trim()) {
+    const reason = data?.choices?.[0]?.finish_reason;
+    throw new SkimError(`Groq boş yanıt döndürdü (model: ${model}${reason ? `, sebep: ${reason}` : ""}).`);
+  }
   return text.trim();
 }
 
@@ -359,22 +362,26 @@ async function callGroq(apiKey, prompt, maxTokens = 4096) {
 // bu tek bir parça için normal, tüm uzun video özetini iptal etmesin. Ama hız sınırı/bağlantı gibi GERÇEK
 // hataları burada yutmuyoruz (önceki sürüm hepsini yutuyordu, bu yüzden asıl sebep görünmüyordu) — bunlar
 // yukarı fırlatılır ki kullanıcı gerçek sebebi görsün.
-async function noteForChunk(apiKey, chunk, index, total) {
+async function noteForChunk(apiKey, chunk, index, total, emptyReasons) {
   try {
-    return await callGroq(apiKey, chunkPrompt(chunk, index, total), 700);
+    return await callGroq(apiKey, chunkPrompt(chunk, index, total), 1500);
   } catch (e) {
-    if (e.message && e.message.includes("boş yanıt")) return ""; // gerçekten bu parça için içerik yok, devam
+    if (e.message && e.message.includes("boş yanıt")) { emptyReasons.push(e.message); return ""; }
     throw e;
   }
 }
 
 async function notesForChunks(apiKey, chunks) {
   const notes = [];
+  const emptyReasons = [];
   for (let i = 0; i < chunks.length; i++) {
-    notes.push(await noteForChunk(apiKey, chunks[i], i, chunks.length));
+    notes.push(await noteForChunk(apiKey, chunks[i], i, chunks.length, emptyReasons));
     if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 400)); // art arda hız sınırına çarpmayalım
   }
-  return notes.filter((n) => n.trim());
+  const good = notes.filter((n) => n.trim());
+  // hiçbir parçadan not çıkmadıysa genel/anlamsız bir mesaj yerine gerçek son sebebi göster
+  if (!good.length && emptyReasons.length) throw new SkimError(`Hiçbir bölümden not çıkarılamadı. ${emptyReasons[emptyReasons.length - 1]}`);
+  return good;
 }
 
 // Son özet adımı (asıl kullanıcıya gidecek metin) boş dönerse, bu tek bir bölümün notu gibi görmezden
