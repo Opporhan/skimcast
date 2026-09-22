@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""skimcast uzantısı için tek seferlik kurulum: native messaging host'u Chrome'a kaydeder.
+"""skimcast uzantısı için tek seferlik kurulum: native messaging host'u kayıtlı bulunan Chromium
+tabanlı tarayıcılara (Chrome, Edge, Chromium, Brave) kaydeder.
 
-Bundan sonra Chrome, uzantı YouTube transcript'i istediğinde skills/summarize/native_host.py'yi kendisi
-anlık olarak başlatır ve kapatır — elle açıp bırakman gereken bir sunucu yok.
+Bundan sonra tarayıcı, uzantı YouTube transcript'i istediğinde skills/summarize/native_host.py'yi
+kendisi anlık olarak başlatır ve kapatır — elle açıp bırakman gereken bir sunucu yok.
 
 Kullanım:  python3 extension/install_native_host.py
 """
 
 import json
-import os
 import stat
 import sys
 from pathlib import Path
@@ -16,13 +16,29 @@ from pathlib import Path
 HOST_NAME = "com.skimcast.native_host"
 EXTENSION_ID = "fkhohoagmipbmdabglegihkclhelefna"  # extension/manifest.json'daki "key" alanından türetildi
 
+# Her tarayıcının native messaging host kayıtlarını aradığı klasör farklı; hepsine yazıyoruz
+# (kayıtlı olmayan tarayıcı için klasör oluşturmak zararsız, sadece kullanılmaz).
+MAC_DIRS = {
+    "Chrome": "Library/Application Support/Google/Chrome/NativeMessagingHosts",
+    "Chrome Beta": "Library/Application Support/Google/Chrome Beta/NativeMessagingHosts",
+    "Chromium": "Library/Application Support/Chromium/NativeMessagingHosts",
+    "Edge": "Library/Application Support/Microsoft Edge/NativeMessagingHosts",
+    "Brave": "Library/Application Support/BraveSoftware/Brave-Browser/NativeMessagingHosts",
+}
+LINUX_DIRS = {
+    "Chrome": ".config/google-chrome/NativeMessagingHosts",
+    "Chromium": ".config/chromium/NativeMessagingHosts",
+    "Edge": ".config/microsoft-edge/NativeMessagingHosts",
+    "Brave": ".config/BraveSoftware/Brave-Browser/NativeMessagingHosts",
+}
 
-def hosts_dir() -> Path:
+
+def hosts_dirs() -> dict:
     home = Path.home()
     if sys.platform == "darwin":
-        return home / "Library/Application Support/Google/Chrome/NativeMessagingHosts"
+        return {name: home / rel for name, rel in MAC_DIRS.items()}
     if sys.platform.startswith("linux"):
-        return home / ".config/google-chrome/NativeMessagingHosts"
+        return {name: home / rel for name, rel in LINUX_DIRS.items()}
     if sys.platform == "win32":
         raise SystemExit(
             "Windows'ta kayıt bir registry anahtarı gerektirir; bu betik yalnızca macOS/Linux'u destekler.\n"
@@ -46,15 +62,22 @@ def main() -> None:
         "type": "stdio",
         "allowed_origins": [f"chrome-extension://{EXTENSION_ID}/"],
     }
+    body = json.dumps(manifest, indent=2, ensure_ascii=False)
 
-    out_dir = hosts_dir()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{HOST_NAME}.json"
-    out_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    written = []
+    for name, out_dir in hosts_dirs().items():
+        # tarayıcının kendi "Application Support" klasörü yoksa muhtemelen kurulu değil; boşuna klasör açma
+        if not out_dir.parent.exists():
+            continue
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / f"{HOST_NAME}.json").write_text(body, encoding="utf-8")
+        written.append(name)
 
-    print(f"Kaydedildi: {out_path}")
+    if not written:
+        raise SystemExit("Desteklenen bir tarayıcı (Chrome/Edge/Chromium/Brave) bulunamadı.")
     print(f"Yardımcı program: {host_script}")
-    print("Chrome'u yeniden başlat (chrome://restart), sonra uzantıdan YouTube linkiyle dene.")
+    print(f"Kaydedildi: {', '.join(written)}")
+    print("Kullandığın tarayıcıyı tamamen kapat ve yeniden aç, sonra uzantıdan YouTube linkiyle dene.")
 
 
 if __name__ == "__main__":
