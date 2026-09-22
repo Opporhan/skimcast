@@ -220,7 +220,7 @@ function buildTranscriptText(t) {
 // claude.ai'ye sekme açıp yapıştırmak yerine özeti doğrudan uzantı içinde üretiyoruz. Bunun için gerçek
 // bir modele istek atmak şart; ücretsiz kalması için Google'ın kredi kartı istemeyen ücretsiz Gemini API
 // katmanını kullanıyoruz (kullanıcı kendi anahtarını ai.google.dev'den alıp ayarlara giriyor).
-const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_MODEL = "gemini-3.6-flash"; // Google 2.0-flash'ı emekliye ayırdı, bu şu an geçerli ücretsiz-katman modeli
 
 function reliabilityNote(method) {
   if (/otomatik|whisper/.test(method)) return "This transcript is auto-generated; names and numbers may contain errors.";
