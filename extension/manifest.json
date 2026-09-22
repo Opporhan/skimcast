@@ -12,13 +12,10 @@
   },
   "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
   "background": { "service_worker": "background.js" },
-  "content_scripts": [
-    { "matches": ["https://claude.ai/*"], "js": ["content-claude.js"], "run_at": "document_idle" }
-  ],
   "permissions": ["storage", "activeTab", "nativeMessaging"],
   "host_permissions": [
     "https://itunes.apple.com/*",
-    "https://claude.ai/*",
+    "https://generativelanguage.googleapis.com/*",
     "http://*/*",
     "https://*/*"
   ]

@@ -1,6 +1,6 @@
 {
   "ext_name": { "message": "skimcast" },
-  "ext_description": { "message": "Paste a link, get a timestamped summary in claude.ai — YouTube, podcasts, articles." },
+  "ext_description": { "message": "Paste a link, get a timestamped summary — YouTube, podcasts, articles. Free (your own Gemini API key)." },
   "popup_title": { "message": "skimcast" },
   "url_label": { "message": "Link" },
   "url_placeholder": { "message": "YouTube, podcast RSS, Apple Podcasts, article…" },
@@ -8,10 +8,19 @@
   "lang_other_placeholder": { "message": "Type a language, e.g. Italian" },
   "lang_other_option": { "message": "Other…" },
   "summarize_btn": { "message": "Summarize" },
-  "status_fetching": { "message": "Fetching the transcript…" },
-  "status_opening_claude": { "message": "Opening claude.ai…" },
-  "status_done": { "message": "Sent to claude.ai (also copied to clipboard, just in case)." },
+  "status_fetching": { "message": "Fetching transcript and summarizing…" },
+  "status_done": { "message": "Done — opened in a new tab." },
   "error_prefix": { "message": "Error:" },
   "error_no_url": { "message": "Enter a link first." },
-  "footer_note": { "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. No yt-dlp or speech-to-text here — for sites without ready captions, use the skimcast Claude Code plugin instead." }
+  "settings_label": { "message": "Settings" },
+  "api_key_label": { "message": "Gemini API key" },
+  "api_key_placeholder": { "message": "AIza…" },
+  "api_key_hint": { "message": "Free, no card required — get one at ai.google.dev." },
+  "api_key_save": { "message": "Save" },
+  "api_key_saved": { "message": "Saved." },
+  "error_no_result": { "message": "No result ID in the URL." },
+  "error_result_not_found": { "message": "This result was not found (it may have already been viewed, or the extension was reloaded)." },
+  "copy_btn": { "message": "Copy summary" },
+  "copied": { "message": "Copied!" },
+  "footer_note": { "message": "Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages. Summarizing needs a free Gemini API key (see Settings below) — no cost, no card." }
 }

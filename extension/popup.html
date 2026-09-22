@@ -22,6 +22,15 @@
   <p id="status" class="status" hidden></p>
   <p id="error" class="error" hidden></p>
 
+  <details id="settings">
+    <summary data-i18n="settings_label">Settings</summary>
+    <label data-i18n="api_key_label" for="apiKey">Gemini API key</label>
+    <input id="apiKey" type="password" data-i18n-placeholder="api_key_placeholder">
+    <p class="hint" data-i18n="api_key_hint">Free, no card. Get one at ai.google.dev.</p>
+    <button id="saveKey" data-i18n="api_key_save">Save</button>
+    <span id="keyStatus" class="hint"></span>
+  </details>
+
   <footer data-i18n="footer_note">
     Works for YouTube, podcast RSS/Apple Podcasts feeds with a transcript tag, and article pages.
   </footer>
