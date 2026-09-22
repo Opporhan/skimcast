@@ -8,10 +8,14 @@ kendisi anlık olarak başlatır ve kapatır — elle açıp bırakman gereken b
 Kullanım:  python3 extension/install_native_host.py
 """
 
-import json
-import stat
 import sys
-from pathlib import Path
+
+sys.dont_write_bytecode = True  # bu klasörde __pycache__ oluşmasın: Chrome/Edge "_" ile başlayan
+# klasör/dosya adlarını (extension/ paketlenmemiş öğe olarak yüklenirken) reddediyor
+
+import json  # noqa: E402
+import stat  # noqa: E402
+from pathlib import Path  # noqa: E402
 
 HOST_NAME = "com.skimcast.native_host"
 EXTENSION_ID = "fkhohoagmipbmdabglegihkclhelefna"  # extension/manifest.json'daki "key" alanından türetildi
