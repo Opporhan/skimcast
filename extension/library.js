@@ -207,17 +207,31 @@ async function getAllHighlights(index) {
   return all.sort((a, b) => b.ts - a.ts);
 }
 
-function highlightRowHtml(h) {
+function highlightRowHtml(h, folders) {
+  const options = [`<option value=""${!h.folder ? " selected" : ""}>${escapeHtml(t("no_folder"))}</option>`,
+    ...folders.map((f) => `<option value="${escapeHtml(f.name)}"${f.name === h.folder ? " selected" : ""}>${escapeHtml(f.name)}</option>`)];
   return `
     <div class="row fav-row">
       <div class="row-main">
         <a class="title" href="viewer.html?id=${encodeURIComponent(h.videoId)}">${escapeHtml(h.videoTitle || "(başlıksız)")}</a>
         <div class="snippet">"${escapeHtml(h.text)}"</div>
+        <select class="fav-folder-select" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}">${options.join("")}</select>
       </div>
       <div class="row-actions">
+        <button class="edit-fav" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>
         <button class="unstar" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}">${t("remove_fav_btn")}</button>
       </div>
     </div>`;
+}
+
+// Bir favoriyi (yıldızlanmış an) günceller — o anın ait olduğu videonun tam kaydı içinde saklı,
+// video kaydını okuyup ilgili highlight'ı değiştirip geri yazıyoruz.
+async function updateHighlight(videoId, hKey, patch) {
+  const fk = archiveKey(videoId);
+  const { [fk]: full } = await chrome.storage.local.get(fk);
+  if (!full) return;
+  full.highlights = (full.highlights || []).map((h) => (h.key === hKey ? { ...h, ...patch } : h));
+  await chrome.storage.local.set({ [fk]: full });
 }
 
 async function init() {
@@ -277,7 +291,8 @@ async function init() {
         <span class="folder-icon">＋</span>
         <span class="folder-name">${t("new_folder_option").replace("…", "")}</span>
       </button>`;
-    foldersEl.parentElement.hidden = favView;
+    // Klasörler bölümü hem video listesini hem favorileri aynı şekilde filtrelemek için kullanılıyor,
+    // bu yüzden favoriler görünümünde de gizlenmiyor.
   }
 
   function renderList() {
@@ -303,7 +318,8 @@ async function init() {
 
   async function renderFavorites() {
     const all = await getAllHighlights(index);
-    listEl.innerHTML = all.length ? all.map(highlightRowHtml).join("") : `<p class="hint">${t("no_favorites")}</p>`;
+    const filtered = activeFolder === null ? all : all.filter((h) => (h.folder || NO_FOLDER) === activeFolder);
+    listEl.innerHTML = filtered.length ? filtered.map((h) => highlightRowHtml(h, folders)).join("") : `<p class="hint">${t("no_favorites")}</p>`;
   }
 
   function render() {
@@ -363,6 +379,11 @@ async function init() {
   });
 
   listEl.addEventListener("change", async (e) => {
+    const favSelect = e.target.closest(".fav-folder-select");
+    if (favSelect) {
+      await updateHighlight(favSelect.dataset.videoId, favSelect.dataset.key, { folder: favSelect.value });
+      return; // odak kaybolmasın diye tüm listeyi yeniden çizmiyoruz; sayı/filtre bir sonraki render'da yansır
+    }
     const select = e.target.closest(".folder-select");
     if (!select) return;
     await updateEntry(select.dataset.id, { folder: select.value });
@@ -395,7 +416,33 @@ async function init() {
         await chrome.storage.local.set({ [fullKey]: full });
       }
       render();
+      return;
     }
+    // "Cümleler ile oynama" — favorilenen anın metnini yerinde düzenleme.
+    const editFav = e.target.closest(".edit-fav");
+    if (editFav) {
+      const row = editFav.closest(".row");
+      const snippetEl = row.querySelector(".snippet");
+      const current = snippetEl.textContent.replace(/^"|"$/g, "");
+      const wrap = document.createElement("div");
+      wrap.innerHTML = `<textarea class="snippet-edit">${escapeHtml(current)}</textarea>
+        <div class="edit-actions">
+          <button class="save-fav" data-video-id="${editFav.dataset.videoId}" data-key="${editFav.dataset.key}">${t("modal_save")}</button>
+          <button class="cancel-fav">${t("modal_cancel")}</button>
+        </div>`;
+      snippetEl.replaceWith(...wrap.childNodes);
+      row.querySelector(".snippet-edit").focus();
+      return;
+    }
+    const saveFav = e.target.closest(".save-fav");
+    if (saveFav) {
+      const row = saveFav.closest(".row");
+      const text = row.querySelector(".snippet-edit").value.trim();
+      if (text) await updateHighlight(saveFav.dataset.videoId, saveFav.dataset.key, { text });
+      render();
+      return;
+    }
+    if (e.target.closest(".cancel-fav")) { render(); }
   });
 }
 

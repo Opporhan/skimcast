@@ -39,10 +39,14 @@ function openInTab(url) {
   chrome.tabs.create({ url, active: true });
 }
 
+// Butona art arda hızlı basılırsa (1.5sn içinde), önceki sürüm "orijinal" metni o an ekranda duran
+// (zaten değiştirilmiş, ör. "✓ Kopyalandı") metinden okuyordu — bu yüzden buton kalıcı olarak takılı
+// kalabiliyordu. Artık gerçek orijinal metni bir kere, elemente kendi verisi olarak saklıyoruz.
 function flashLabel(btn, label) {
-  const original = btn.textContent;
+  if (btn.dataset.originalLabel === undefined) btn.dataset.originalLabel = btn.textContent;
   btn.textContent = label;
-  setTimeout(() => { btn.textContent = original; }, 1500);
+  clearTimeout(btn._flashTimer);
+  btn._flashTimer = setTimeout(() => { btn.textContent = btn.dataset.originalLabel; }, 1500);
 }
 
 // ------------------------------------------------------------ çeviri (cihaz üzerinde, Translator API)
@@ -82,7 +86,9 @@ async function init() {
   const { meta, blocks } = entry;
   entry.highlights = entry.highlights || []; // {sec, text, ts}[] — favorilenen anlar
   document.title = meta.title || "skimcast";
-  const metaLine = [meta.title, meta.duration, meta.method].filter(Boolean).join(" · ");
+  // Başlık zaten yukarıdaki h1'de var — burada tekrarlamıyoruz, yöntemi ("youtube-altyazı (en, otomatik)"
+  // gibi) de göstermiyoruz çünkü kullanıcıya bir anlam ifade etmiyor. Sadece video/podcast süresi kalıyor.
+  const metaLine = meta.duration || "";
   const canTranslate = typeof Translator !== "undefined";
 
   app.innerHTML = `

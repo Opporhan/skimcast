@@ -120,11 +120,12 @@ button:hover { filter: brightness(.96); }
 }
 .block .ad-skip:hover { color: var(--text); background: var(--bg-subtle); }
 .block .star-btn {
-  flex-shrink: 0; font-size: 16px; padding: 2px 6px; line-height: 1; background: none;
-  color: var(--border); cursor: pointer;
+  /* Önceki renk (--border) neredeyse görünmezdi, "belirgin değil" şikayeti buradandı. */
+  flex-shrink: 0; font-size: 19px; padding: 3px 7px; line-height: 1; background: none;
+  color: var(--text-muted); cursor: pointer; border-radius: 8px;
 }
-.block .star-btn:hover { color: var(--star); background: none; }
-.block .star-btn.starred { color: var(--star); }
+.block .star-btn:hover { color: var(--star); background: var(--ad-bg); }
+.block .star-btn.starred { color: var(--star); background: var(--ad-bg); }
 
 .toast {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(8px);
