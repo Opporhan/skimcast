@@ -355,19 +355,25 @@ async function callGroq(apiKey, prompt, maxTokens = 4096) {
   throw lastErr;
 }
 
-// Onlarca ara istekten biri (kısa/tekdüze bir bölüm, ya da modelin geçici bir tuhaflığı) boş dönebilir.
-// Bu tek bir parça için normal; tüm uzun video özetini iptal etmesin — o notu boş bırakıp devam et.
+// Onlarca ara istekten biri, modelin o anki geçici bir tuhaflığıyla gerçekten boş içerik döndürebilir —
+// bu tek bir parça için normal, tüm uzun video özetini iptal etmesin. Ama hız sınırı/bağlantı gibi GERÇEK
+// hataları burada yutmuyoruz (önceki sürüm hepsini yutuyordu, bu yüzden asıl sebep görünmüyordu) — bunlar
+// yukarı fırlatılır ki kullanıcı gerçek sebebi görsün.
 async function noteForChunk(apiKey, chunk, index, total) {
   try {
     return await callGroq(apiKey, chunkPrompt(chunk, index, total), 700);
-  } catch {
-    return ""; // bu parçadan not çıkmadı, devam
+  } catch (e) {
+    if (e.message && e.message.includes("boş yanıt")) return ""; // gerçekten bu parça için içerik yok, devam
+    throw e;
   }
 }
 
 async function notesForChunks(apiKey, chunks) {
   const notes = [];
-  for (let i = 0; i < chunks.length; i++) notes.push(await noteForChunk(apiKey, chunks[i], i, chunks.length));
+  for (let i = 0; i < chunks.length; i++) {
+    notes.push(await noteForChunk(apiKey, chunks[i], i, chunks.length));
+    if (i < chunks.length - 1) await new Promise((r) => setTimeout(r, 400)); // art arda hız sınırına çarpmayalım
+  }
   return notes.filter((n) => n.trim());
 }
 
