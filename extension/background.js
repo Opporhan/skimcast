@@ -1,9 +1,8 @@
-// skimcast (uzantı): background.js — transcript'i tarayıcıda toplar.
-// Python sürümünün (skills/summarize/transcript.py) küçük bir alt kümesi: yt-dlp ve whisper YOK
-// (bir uzantı bunları çalıştıramaz). Yalnızca doğrudan JS ile çekilebilenler: YouTube (gerçek "Transkripti
-// göster" düğmesine tıklayıp DOM'u okuyarak — YouTube'un caption/get_transcript API'leri artık ham fetch()
-// isteklerini reddediyor, bkz. fromYoutube), podcast RSS'teki <podcast:transcript> etiketi,
-// Apple Podcasts (RSS'e yönlendirir), web sayfası metni.
+// skimcast (uzantı): background.js — transcript'i toplar.
+// Podcast RSS / Apple Podcasts / web sayfası: doğrudan JS fetch ile (aşağıda). YouTube ise tarayıcıdan
+// artık erişilemiyor (bkz. fromYoutube) — bunun için skills/summarize/native_host.py'ye (Python,
+// youtube_transcript_api) native messaging ile bağlanıyoruz; sürekli çalışan bir sunucu değil, Chrome
+// anlık olarak başlatıp kapatıyor.
 
 const BLOCK_SECONDS = 30;
 const MIN_PAGE_CHARS = 300;
@@ -46,7 +45,7 @@ async function fetchText(url) {
   return res.text();
 }
 
-// ---------------------------------------------------------------- YouTube
+// ---------------------------------------------------------------- YouTube (native messaging üzerinden)
 const YT_ID_RE = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/|v\/))([\w-]{11})/;
 
 function youtubeId(url) {
@@ -54,169 +53,34 @@ function youtubeId(url) {
   return m ? m[1] : null;
 }
 
-// YouTube'un caption/timedtext ve youtubei/v1/get_transcript API'leri artık ham fetch() isteklerine
-// (imzalı gerçek oturumla bile) boş yanıt ya da "Precondition check failed" ile karşılık veriyor —
-// bot koruması. Bunu aşmaya çalışmak (istemci kimliği taklit etmek, korumayı atlatmak) yapmayacağımız
-// bir şey. Bunun yerine gerçek bir kullanıcı gibi davranıyoruz: videoyu bir sekmede açıp YouTube'un kendi
-// "Transkripti göster" düğmesine tıklıyoruz ve YouTube'un kendi (meşru, gerçek oturumla başarılı olan)
-// isteğinin doldurduğu DOM'u okuyoruz. Bu satır satır fonksiyon, chrome.scripting.executeScript ile
-// sayfaya enjekte edildiği için tamamen kendi içinde olmalı (background.js'teki başka hiçbir şeye erişemez).
-function scrapeTranscriptInPage() {
-  return new Promise((resolve) => {
-    const q = (sel, root) => (root || document).querySelector(sel);
-    const qa = (sel, root) => [...(root || document).querySelectorAll(sel)];
-    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-    const title = () => document.title.replace(/ - YouTube$/, "");
+// YouTube'un caption/get_transcript API'leri artık tarayıcıdan (gerçek, oturum açmış kullanıcının
+// imzasıyla bile) çalışmıyor: bir "proof of origin" (pot) token istiyor, bu da yalnızca gerçek, işletim
+// sistemi seviyesinde bir fare/klavye etkileşimiyle üretiliyor — bir uzantının kod olarak üretemeyeceği
+// bir şey (denendi, doğrulandı: gerçek tıklama çalışıyor, .click() ve chrome.debugger ile üretilen
+// "tıklamalar" çalışmıyor). Bunu atlatmaya çalışmak (sahte-ama-güvenilir olay üretmek) yapmayacağımız bir
+// şey. Bunun yerine YouTube'u bu korumaya hiç takılmayan gerçek bir Python süreciyle (youtube_transcript_api)
+// okuyoruz: Chrome, "Özetle" dendiğinde skills/summarize/native_host.py'yi anlık başlatıp kapatıyor
+// (native messaging) — sürekli açık duran bir sunucu değil. Kurulum tek seferlik: extension/install_native_host.py.
+const NATIVE_HOST = "com.skimcast.native_host";
 
-    // YouTube'un pano metnindeki satırları [(saniye, metin)] listesine çevirir.
-    // Biçim: "0:00\nmetin" ya da "0:00 metin" satırları; zaman damgasız satır bir öncekine eklenir.
-    function parseCopiedTranscript(raw) {
-      const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-      const segs = [];
-      const timeLine = /^(\d{1,2}:\d{2}(?::\d{2})?)$/;
-      const timeAndText = /^(\d{1,2}:\d{2}(?::\d{2})?)[\s\t]+(.+)$/;
-      const toSec = (t) => t.split(":").map(Number).reduce((a, b) => a * 60 + b, 0);
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        let m = line.match(timeAndText);
-        if (m) { segs.push([toSec(m[1]), m[2]]); continue; }
-        m = line.match(timeLine);
-        if (m && lines[i + 1] && !timeLine.test(lines[i + 1])) { segs.push([toSec(m[1]), lines[++i]]); continue; }
-        if (segs.length && !/^(Konuşma metni|Transcript)$/i.test(line)) segs[segs.length - 1][1] += " " + line;
+function fromYoutube(url, langs) {
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendNativeMessage(NATIVE_HOST, { action: "getTranscript", url, lang: langs.join(",") }, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new SkimError(
+          "YouTube için yerel yardımcı program kurulu değil ya da Chrome'a kayıtlı değil (tek seferlik kurulum " +
+          "gerekiyor). Terminalde çalıştır: python3 extension/install_native_host.py — sonra Chrome'u yeniden " +
+          `başlat. (${chrome.runtime.lastError.message})`
+        ));
+        return;
       }
-      return segs;
-    }
-
-    (async () => {
-      const expandBtn = q("tp-yt-paper-button#expand, #expand");
-      if (expandBtn) { expandBtn.click(); await sleep(300); }
-
-      let btn = null;
-      for (let i = 0; i < 15 && !btn; i++) {
-        btn = q("ytd-video-description-transcript-section-renderer button");
-        if (!btn) await sleep(300);
+      if (!response || !response.ok) {
+        reject(new SkimError(response?.error || "Yerel yardımcı programdan yanıt alınamadı."));
+        return;
       }
-      if (!btn) return resolve({ error: "no-button" });
-      btn.click();
-      await sleep(500);
-      const panel = q('[target-id="engagement-panel-searchable-transcript"]');
-      if (panel) panel.scrollIntoView({ block: "center" });
-
-      // 1) Öncelikli yol: YouTube'un kendi "Transkripti kopyala" düğmesi + pano okuma.
-      // Panelin kendi mantığıyla doldurduğu veriye güveniyoruz; DOM sınıf adı tahminine gerek kalmıyor.
-      let copyBtn = null;
-      for (let i = 0; i < 12 && !copyBtn; i++) {
-        copyBtn = qa("button").find((b) => /copy transcript|transkripti kopyala/i.test(
-          (b.getAttribute("aria-label") || "") + " " + (b.innerText || "")));
-        if (!copyBtn) await sleep(300);
-      }
-      if (copyBtn) {
-        copyBtn.click();
-        await sleep(400);
-        try {
-          const clip = await navigator.clipboard.readText();
-          const segs = parseCopiedTranscript(clip);
-          if (segs.length) return resolve({ title: title(), segments: segs, via: "copy-button" });
-        } catch { /* pano okunamadı (odak/izin), DOM taramasına düş */ }
-      }
-
-      // 2) Yedek yol: segment elemanlarını doğrudan DOM'dan oku.
-      let segs = [];
-      for (let i = 0; i < 14; i++) {
-        await sleep(400);
-        segs = qa("ytd-transcript-segment-renderer");
-        if (segs.length) break;
-        if (i % 4 === 0 && panel) panel.scrollIntoView({ block: "center" });
-      }
-      if (!segs.length) {
-        let debug = "panel DOM'da hiç yok (buton tıklaması paneli açmamış olabilir)";
-        if (panel) {
-          const kids = [...panel.querySelectorAll("*")];
-          const tagCounts = {};
-          for (const k of kids) tagCounts[k.tagName] = (tagCounts[k.tagName] || 0) + 1;
-          const topTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 8)
-            .map(([t, c]) => `${t}:${c}`).join(", ");
-          debug = `panel var, ${kids.length} alt öğe [${topTags}], kopyala düğmesi: ${copyBtn ? "var" : "yok"}, ` +
-            `metin: "${panel.innerText.slice(0, 150).replace(/\n+/g, " | ")}"`;
-        }
-        return resolve({ error: "no-segments", debug });
-      }
-
-      const out = segs.map((s) => {
-        const timeEl = q(".segment-timestamp", s);
-        const textEl = q(".segment-text", s);
-        let timeText, text;
-        if (timeEl && textEl) {
-          timeText = timeEl.innerText.trim();
-          text = textEl.innerText.trim();
-        } else {
-          const full = s.innerText.trim();
-          const m = full.match(/^(\d{1,2}:\d{2}(?::\d{2})?)\s*\n?/);
-          timeText = m ? m[1] : "0:00";
-          text = m ? full.slice(m[0].length).trim() : full;
-        }
-        const parts = timeText.split(":").map(Number);
-        const sec = parts.every((n) => !Number.isNaN(n)) ? parts.reduce((a, b) => a * 60 + b, 0) : 0;
-        return [sec, text];
-      }).filter(([, t]) => t);
-
-      resolve({ title: title(), segments: out, via: "dom" });
-    })();
+      resolve({ native: true, meta: response.meta, text: response.text });
+    });
   });
-}
-
-function waitForTabComplete(tabId) {
-  return new Promise((resolve) => {
-    function listener(id, info) {
-      if (id === tabId && info.status === "complete") {
-        chrome.tabs.onUpdated.removeListener(listener);
-        resolve();
-      }
-    }
-    chrome.tabs.onUpdated.addListener(listener);
-    chrome.tabs.get(tabId).then((t) => {
-      if (t.status === "complete") { chrome.tabs.onUpdated.removeListener(listener); resolve(); }
-    }).catch(() => {});
-  });
-}
-
-async function fromYoutube(videoId) {
-  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
-  const openTabs = await chrome.tabs.query({});
-  let tab = openTabs.find((t) => t.url && youtubeId(t.url) === videoId);
-  const createdByUs = !tab;
-  if (!tab) {
-    // Sekme aktif (öndeki) açılmalı: YouTube'un transcript paneli ve pano API'si, arka plandaki
-    // (görünmeyen/render edilmeyen) sekmelerde güvenilir çalışmıyor. Bu, popup'ın kapanmasına
-    // sebep olabilir; bu yüzden tüm akış (claude.ai'ye aktarım dahil) background.js'te bitiyor.
-    tab = await chrome.tabs.create({ url: watchUrl, active: true });
-    await waitForTabComplete(tab.id);
-    await new Promise((r) => setTimeout(r, 800));
-  } else if (!tab.active) {
-    await chrome.tabs.update(tab.id, { active: true }).catch(() => {});
-    await new Promise((r) => setTimeout(r, 300));
-  }
-  let result;
-  try {
-    const [{ result: r }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: scrapeTranscriptInPage });
-    result = r;
-  } catch (e) {
-    throw new SkimError(`YouTube sekmesinde transcript okunamadı: ${e.message || e}`);
-  } finally {
-    if (createdByUs) chrome.tabs.remove(tab.id).catch(() => {});
-  }
-  if (!result || result.error === "no-button") {
-    throw new SkimError("Bu videoda transcript bulunamadı (YouTube'da \"Transkripti göster\" düğmesi yok; video altyazısız olabilir).");
-  }
-  if (result.error === "no-segments") {
-    throw new SkimError(`Transcript paneli açıldı ama metin gelmedi. Teşhis: ${result.debug || "(yok)"}`);
-  }
-  const segs = result.segments;
-  const duration = segs.length ? segs[segs.length - 1][0] : 0;
-  return {
-    title: result.title || "", method: "youtube-altyazı (tarayıcı üzerinden)", segments: segs, duration,
-    linkPrefix: `https://youtu.be/${videoId}?t=`, timestamps: true,
-  };
 }
 
 // ---------------------------------------------------------------- podcast RSS / Apple
@@ -337,8 +201,7 @@ async function getTranscript(target, langs) {
   if (host.includes("spotify.com")) {
     throw new SkimError("Spotify içeriği korumalıdır (DRM) ve desteklenmez. Aynı podcast'in Apple Podcasts veya RSS linkini kullanın.");
   }
-  const vid = youtubeId(target);
-  if (vid) return fromYoutube(vid); // dil seçimi yok: YouTube'un panelde gösterdiği altyazı kullanılır
+  if (youtubeId(target)) return fromYoutube(target, langs);
   if (APPLE_RE.test(target)) return fromApple(target);
   if (FEED_RE.test(target)) return fromFeed(target);
   try {
@@ -355,7 +218,7 @@ function buildTranscriptText(t) {
 
 // ---------------------------------------------------------------- claude.ai'ye aktarım
 function reliabilityNote(method) {
-  if (/otomatik|whisper|tarayıcı üzerinden/.test(method)) return "This transcript is auto-generated or extracted from a live page; names and numbers may contain errors.";
+  if (/otomatik|whisper/.test(method)) return "This transcript is auto-generated; names and numbers may contain errors.";
   if (method === "web-sayfası") return "This is NOT the video/audio transcript — only the webpage's text. State that clearly and don't imply you heard the audio.";
   return "";
 }
@@ -395,8 +258,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   const langs = (msg.lang || "tr,en").split(",").map((s) => s.trim().split("-")[0]).filter(Boolean);
   getTranscript(msg.url, langs)
     .then(async (t) => {
-      const meta = { title: t.title, method: t.method, duration: t.duration ? fmtTime(t.duration) : "", linkPrefix: t.linkPrefix };
-      const text = buildTranscriptText(t);
+      const meta = t.native
+        ? { title: t.meta.title, method: t.meta.method, duration: t.meta.duration, linkPrefix: t.meta.link_prefix }
+        : { title: t.title, method: t.method, duration: t.duration ? fmtTime(t.duration) : "", linkPrefix: t.linkPrefix };
+      const text = t.native ? t.text : buildTranscriptText(t);
       await handoffToClaude(buildPrompt(meta, text, msg.langName || "English"));
       try { sendResponse({ ok: true, meta }); } catch { /* popup zaten kapanmış olabilir, sorun değil */ }
     })

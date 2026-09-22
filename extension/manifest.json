@@ -5,6 +5,7 @@
   "description": "__MSG_ext_description__",
   "default_locale": "en",
   "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA8ZGHejuE/zz3MSYDkdJdnoBSVIFZMNaJKcmQrvf4S4H0on1unJp6X21jiyrFU+6MW+RrDZQeJSw2lU1sbx8VeO0yoRtFbNS3y2qUQjMAk8RzbfdsafXLJhqHJtCNC4FaNQJS57qsWhP6QduJnILE5p85jWZdui+FXpDe4kf1x0SI/3xKqMhvABz5uHfTsjDyTwaDWx/3GVJjKbQyi1ptzlvFRLsd72nCzvnjfy8Sl91Ix9Llfwy7aBtk6/zMrXAV75X1ZhH/EPjIRRonyeu7ncoctkzWXR/B6aBr5pB1whlqgBKgtrGWv597yv1eUQLY6ffa/xuC1lFNgbEpCCU/fQIDAQAB",
   "action": {
     "default_popup": "popup.html",
     "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
@@ -14,10 +15,8 @@
   "content_scripts": [
     { "matches": ["https://claude.ai/*"], "js": ["content-claude.js"], "run_at": "document_idle" }
   ],
-  "permissions": ["storage", "activeTab", "scripting", "tabs", "clipboardRead"],
+  "permissions": ["storage", "activeTab", "nativeMessaging"],
   "host_permissions": [
-    "https://www.youtube.com/*",
-    "https://youtu.be/*",
     "https://itunes.apple.com/*",
     "https://claude.ai/*",
     "http://*/*",
