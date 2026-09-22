@@ -1,7 +1,27 @@
-// skimcast (uzantı): result.js — background.js'in chrome.storage.local'e yazdığı özeti okur, gösterir.
-// Özet akış (streaming) halinde geliyor: background.js metni yazıldıkça bu anahtara yazıyor, biz de
-// chrome.storage.onChanged ile dinleyip canlı güncelliyoruz (uzun videolarda boş ekranda beklemek yerine
-// metin yazılırken görünür).
+// skimcast (uzantı): result.js — background.js'in chrome.storage.local'e bıraktığı transcript'i okuyup
+// ÖZETLEMEYİ BURADA (bu sekmede, summarize.js'teki fonksiyonlarla) başlatır ve sonucu yine
+// chrome.storage.local'e yazar, chrome.storage.onChanged ile kendi görünümünü günceller. Özetleme
+// background.js'in servis çalışanında değil, burada çalışıyor: Chrome servis çalışanlarını uzun süren
+// işlerin ortasında sonlandırabiliyordu (uzun videolarda "Özetleniyor" sonsuza kadar takılı kalıyordu),
+// normal bir sekme bu şekilde öldürülmüyor.
+
+const resultKey = (id) => `skimcastResult:${id}`;
+
+async function setResult(id, patch) {
+  const key = resultKey(id);
+  const { [key]: cur } = await chrome.storage.local.get(key);
+  await chrome.storage.local.set({ [key]: { ...cur, ...patch } });
+}
+
+async function runSummary(id, meta, text, langName) {
+  try {
+    const apiKey = await getApiKey();
+    const markdown = await summarizeLong(apiKey, meta, text, langName);
+    await setResult(id, { markdown, status: "done" });
+  } catch (e) {
+    await setResult(id, { status: "error", error: e instanceof SkimError ? e.message : String(e.message || e) });
+  }
+}
 
 function t(key) { return chrome.i18n.getMessage(key) || key; }
 
@@ -83,6 +103,9 @@ async function init() {
     }
   }
   render(result);
+
+  // Özetleme henüz başlamadıysa (status "loading" ve metin daha işlenmemiş) burada başlat.
+  if (result.status === "loading" && result.text) runSummary(id, meta, result.text, result.langName);
 
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local" || !changes[key]) return;
