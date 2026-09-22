@@ -14,7 +14,7 @@
   "content_scripts": [
     { "matches": ["https://claude.ai/*"], "js": ["content-claude.js"], "run_at": "document_idle" }
   ],
-  "permissions": ["storage", "activeTab", "scripting", "tabs"],
+  "permissions": ["storage", "activeTab", "scripting", "tabs", "clipboardRead"],
   "host_permissions": [
     "https://www.youtube.com/*",
     "https://youtu.be/*",
