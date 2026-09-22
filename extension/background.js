@@ -247,10 +247,19 @@ ${text}
 // ayrıştırma hatalıydı ve sonsuza kadar "yazılıyor" gösterip hiç sonuç vermiyordu (her ham bayt
 // geldiğinde zaman aşımı sıfırlanıyor, ama metin hiç ayrıştırılamıyordu). Kaldırıldı; bunun yerine
 // kullanıcıyla iki kez gerçek çıktıyla doğrulanmış, tek istekli, tam yanıtı bekleyen basit yöntem var.
+// Gemini'nin RESOURCE_EXHAUSTED (429) hatası genelde tam ne kadar beklenmesi gerektiğini
+// error.details içinde "RetryInfo"nun retryDelay alanında söylüyor (ör. "5.6s"); tahmin etmek yerine
+// bunu okuyoruz.
+function parseRetryDelayMs(data) {
+  const info = data?.error?.details?.find((d) => String(d["@type"] || "").includes("RetryInfo"));
+  const sec = parseFloat(info?.retryDelay || "");
+  return Number.isFinite(sec) ? Math.ceil(sec * 1000) : null;
+}
+
 async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000); // uzun videoda 2 dk'ya kadar makul
+  const timeout = setTimeout(() => controller.abort(), 90000);
   let res;
   try {
     res = await fetch(url, {
@@ -260,7 +269,7 @@ async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
       signal: controller.signal,
     });
   } catch (e) {
-    throw new SkimError(e.name === "AbortError" ? "Gemini 2 dakikada yanıt vermedi (zaman aşımı)." : `Gemini'ye bağlanılamadı: ${e.message}`);
+    throw new SkimError(e.name === "AbortError" ? "Gemini 90 saniyede yanıt vermedi (zaman aşımı)." : `Gemini'ye bağlanılamadı: ${e.message}`);
   } finally {
     clearTimeout(timeout);
   }
@@ -268,6 +277,7 @@ async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
   if (!res.ok) {
     const err = new SkimError(`Gemini hata döndürdü (${res.status}): ${data?.error?.message || "bilinmeyen hata"}.`);
     err.status = res.status;
+    err.retryDelayMs = parseRetryDelayMs(data);
     throw err;
   }
   const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
@@ -278,22 +288,21 @@ async function callGeminiOnce(apiKey, prompt, maxOutputTokens) {
   return text.trim();
 }
 
-// Geçici hatalar: 429 (dakikalık hız sınırı) ve 503 (Google tarafında yoğunluk) — ikisi de kısa süre
-// sonra kendiliğinden düzeliyor. Kullanıcıya çiğ hata göstermeden birkaç kez, artan gecikmeyle tekrar dene.
+// Geçici hatalar: 429 (hız sınırı) ve 503 (Google tarafında yoğunluk). Yalnızca BİR kez yeniden dener
+// (her deneme uzun bir video için 90 saniyeye kadar sürebiliyor; 3 kez denemek 5-6 dakikaya çıkıp
+// "hiç bitmiyor" hissi veriyordu). Google'ın belirttiği bekleme süresi varsa onu kullanır (en fazla 15sn).
 const RETRYABLE_STATUS = new Set([429, 503]);
 
 async function callGemini(apiKey, prompt) {
-  const delays = [1000, 3000, 8000];
-  for (let i = 0; ; i++) {
-    try {
-      return await callGeminiOnce(apiKey, prompt, 8192);
-    } catch (e) {
-      if (!RETRYABLE_STATUS.has(e.status) || i >= delays.length) {
-        if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
-        throw e;
-      }
-      await new Promise((r) => setTimeout(r, delays[i]));
+  try {
+    return await callGeminiOnce(apiKey, prompt, 8192);
+  } catch (e) {
+    if (!RETRYABLE_STATUS.has(e.status)) {
+      if (e.status === 401 || e.status === 400) e.message += " API anahtarını kontrol et.";
+      throw e;
     }
+    await new Promise((r) => setTimeout(r, Math.min(e.retryDelayMs ?? 3000, 15000)));
+    return await callGeminiOnce(apiKey, prompt, 8192);
   }
 }
 
