@@ -48,6 +48,14 @@ header { margin-bottom: 16px; }
 #langBtn:hover { filter: brightness(.95); }
 h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em; }
 .meta { color: var(--text-muted); font-size: 13px; }
+
+/* Bölümler (video açıklamasından ayıklanan zaman damgalı bölüm listesi) — yatayda kayan, sade çipler. */
+.chapters-row { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 2px; }
+.chapter-chip {
+  flex-shrink: 0; font-size: 12px; padding: 6px 12px; border-radius: 14px;
+  background: var(--bg-subtle); color: var(--text-muted); white-space: nowrap;
+}
+.chapter-chip:hover { background: var(--accent-soft); color: var(--accent); }
 /* Boşken (☆) koyu/belirgin, aktif olunca (★) sarı/altın — ★ CSS color'a uyuyor (emoji değil). */
 .star-ico { color: var(--text); }
 .toggle-btn.active .star-ico { color: #f5b400; }
@@ -156,8 +164,10 @@ button:hover { filter: brightness(.96); }
 }
 .block .star-folder-btn:hover { color: var(--accent); background: var(--accent-soft); border-radius: 8px; }
 
-/* Sesli okuma sırasında o an okunan satır */
+/* Sesli okuma sırasında o an okunan satır; videoyla senkron takipte o an izlenen satır (sol kenarda
+   ince bir vurgu çizgisiyle ayırt ediliyor, ikisi aynı anda tetiklenmez ama görsel dilde tutarlı kalsın). */
 .block.reading { background: var(--accent-soft); }
+.block.synced { background: var(--accent-soft); border-left: 3px solid var(--accent); padding-left: 5px; }
 .block .tts-play-from {
   flex-shrink: 0; font-size: 12px; padding: 3px 7px; line-height: 1; background: none;
   color: var(--text-muted); cursor: pointer;

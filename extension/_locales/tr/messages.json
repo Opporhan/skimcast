@@ -152,11 +152,17 @@
   "fav_view_btn": {
     "message": "Favoriler"
   },
+  "resurface_label": {
+    "message": "💭 Bunu hatırlıyor musun?"
+  },
   "no_favorites": {
     "message": "Henüz favori işaretlenmiş bir an yok. Bir video açıp satırların yanındaki ☆ ikonuna tıkla."
   },
   "remove_fav_btn": {
     "message": "Kaldır"
+  },
+  "fav_note_placeholder": {
+    "message": "Bu anla ilgili kendi notun… (isteğe bağlı)"
   },
   "search_placeholder": {
     "message": "Bu transcript'te ara…"
@@ -199,6 +205,12 @@
   },
   "move_to_folder_btn": {
     "message": "📁 Dosyaya Taşı"
+  },
+  "sync_btn": {
+    "message": "Videoyla Eşitle"
+  },
+  "sync_hint": {
+    "message": "YouTube sekmesinde videoyu izlerken transcript'i takip eder — o an konuşulan satırı vurgulayıp oraya kaydırır. YouTube sekmesini açık tut."
   },
   "move_to_folder_title": {
     "message": "Dosyaya Taşı"

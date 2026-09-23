@@ -17,5 +17,12 @@
     "https://itunes.apple.com/*",
     "http://*/*",
     "https://*/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["youtube_sync.js"],
+      "run_at": "document_idle"
+    }
   ]
 }

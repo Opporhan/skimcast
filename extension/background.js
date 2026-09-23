@@ -89,6 +89,40 @@ function fromYoutube(url, langs) {
   });
 }
 
+// ---------------------------------------------------------------- YouTube bölümleri (chapters)
+// Birçok YouTube videosunun açıklamasında zaman damgalı bir bölüm listesi olur (ör. "0:00 Giriş\n2:15 ...").
+// Bunun için ayrı bir resmi API yok; videonun herkese açık izleme sayfasının HTML'inde gömülü olan
+// "shortDescription" alanını okuyup regex ile ayıklıyoruz. Bulunamazsa (chapters yok, sayfa yapısı
+// değişmiş, vs.) sessizce null dönüyoruz — best-effort bir özellik, transcript almayı etkilememeli.
+function unescapeJsString(s) {
+  return s.replace(/\\n/g, "\n").replace(/\\"/g, '"').replace(/\\\//g, "/").replace(/\\u0026/g, "&");
+}
+
+async function fetchYoutubeChapters(videoId) {
+  try {
+    const html = await fetchText(`https://www.youtube.com/watch?v=${videoId}`);
+    const m = html.match(/"shortDescription":"((?:\\.|[^"\\])*)"/);
+    if (!m) return null;
+    const desc = unescapeJsString(m[1]);
+    const lineRe = /^(\d{1,2}(?::\d{2}){1,2})\s*[-–:]?\s+(.+)$/;
+    const chapters = [];
+    for (const raw of desc.split("\n")) {
+      const lm = raw.trim().match(lineRe);
+      if (!lm) continue;
+      const title = lm[2].trim();
+      if (title) chapters.push({ sec: parseTimeLabel(lm[1]), title });
+    }
+    // YouTube'un kendi kuralı: en az 3 bölüm, ilk bölüm 0:00'a yakın başlar, zaman damgaları kesin artan.
+    if (chapters.length < 3 || chapters[0].sec > 3) return null;
+    for (let i = 1; i < chapters.length; i++) {
+      if (chapters[i].sec <= chapters[i - 1].sec) return null;
+    }
+    return chapters;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------- podcast RSS / Apple
 function parseSubtitles(text) {
   const segs = []; let curT = null, lines = [], prev = [];
@@ -307,6 +341,11 @@ async function fetchAndOpen(url) {
   const blocks = parseTimedBlocks(text);
 
   const id = stableId(url);
+  const ytId = youtubeId(url);
+  if (ytId) {
+    const chapters = await fetchYoutubeChapters(ytId);
+    if (chapters) meta.chapters = chapters;
+  }
   await saveToArchive(id, url, meta, blocks);
   chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(id)}`) });
   return meta;
@@ -324,6 +363,32 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   })();
   return true; // asenkron yanıt
 });
+
+// ---------------------------------------------------------------- videoyla senkron takip (follow-along)
+// youtube_sync.js (YouTube sayfasına enjekte edilen içerik betiği) oynatma anını buraya bildiriyor;
+// hangi görüntüleyici sekmesinin hangi videoyu gösterdiğini (viewer.js "eşitle"yi açtığında kayıt olarak)
+// burada tutup eşleşeni buluyoruz ve ona iletiyoruz. Sekme kapanınca kaydı temizliyoruz ki hayalet mesaj
+// gitmeye çalışıp konsola gereksiz hata yazmasın.
+const syncViewerTabs = new Map(); // tabId -> videoId
+
+chrome.runtime.onMessage.addListener((msg, sender) => {
+  if (msg?.type === "skimcast-register-viewer") {
+    if (sender.tab?.id != null) {
+      if (msg.videoId) syncViewerTabs.set(sender.tab.id, msg.videoId);
+      else syncViewerTabs.delete(sender.tab.id);
+    }
+    return;
+  }
+  if (msg?.type === "skimcast-time-update" && msg.videoId) {
+    for (const [tabId, videoId] of syncViewerTabs) {
+      if (videoId === msg.videoId) {
+        chrome.tabs.sendMessage(tabId, { type: "skimcast-time-sync", currentTime: msg.currentTime }).catch(() => {});
+      }
+    }
+  }
+});
+
+chrome.tabs.onRemoved.addListener((tabId) => { syncViewerTabs.delete(tabId); });
 
 // ---------------------------------------------------------------- sağ tık menüsü
 // Popup'ı açıp linki yapıştırmaya gerek kalmadan, bir videoya/linke sağ tıklayıp doğrudan getirmek için.

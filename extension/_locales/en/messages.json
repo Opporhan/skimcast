@@ -152,11 +152,17 @@
   "fav_view_btn": {
     "message": "Favorites"
   },
+  "resurface_label": {
+    "message": "💭 Remember this?"
+  },
   "no_favorites": {
     "message": "No favorite moments yet. Open a video and click the ☆ next to a line."
   },
   "remove_fav_btn": {
     "message": "Remove"
+  },
+  "fav_note_placeholder": {
+    "message": "Add a personal note about this moment… (optional)"
   },
   "search_placeholder": {
     "message": "Search this transcript…"
@@ -199,6 +205,12 @@
   },
   "move_to_folder_btn": {
     "message": "📁 Move to Folder"
+  },
+  "sync_btn": {
+    "message": "Sync With Video"
+  },
+  "sync_hint": {
+    "message": "Follows along while you watch the video in its YouTube tab — highlights and scrolls to the line being spoken. Keep the YouTube tab open."
   },
   "move_to_folder_title": {
     "message": "Move to Folder"

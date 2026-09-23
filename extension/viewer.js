@@ -112,6 +112,7 @@ async function init() {
   const metaLine = meta.duration || (lastSec != null ? fmtTime(lastSec) : "");
   const canTranslate = typeof Translator !== "undefined";
   const canSpeak = typeof speechSynthesis !== "undefined";
+  const ytVideoId = id.startsWith("yt:") ? id.slice(3) : null; // "🔗 Videoyla Eşitle" sadece YouTube'da anlamlı
 
   app.innerHTML = `
     <header>
@@ -125,6 +126,10 @@ async function init() {
       <h1>${escapeHtml(meta.title || t("popup_title"))}</h1>
       <div class="meta">${escapeHtml(metaLine)}</div>
     </header>
+    ${meta.chapters?.length ? `
+    <div class="chapters-row" id="chaptersRow">
+      ${meta.chapters.map((c) => `<button class="chapter-chip" data-sec="${c.sec}">${escapeHtml(fmtTime(c.sec))} · ${escapeHtml(c.title)}</button>`).join("")}
+    </div>` : ""}
     <div class="search-row">
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
     </div>
@@ -132,6 +137,7 @@ async function init() {
       <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_only_btn")}</button>
       <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
       <button id="moveBtn">${t("move_to_folder_btn")}</button>
+      ${ytVideoId ? `<button id="syncBtn" class="toggle-btn" title="${escapeHtml(t("sync_hint"))}">🔗 ${t("sync_btn")}</button>` : ""}
       <span class="toolbar-divider"></span>
       <button id="copyBtn">${t("copy_btn")}</button>
       <button id="downloadBtn">${t("download_btn")}</button>
@@ -341,6 +347,64 @@ async function init() {
   const noMatches = document.getElementById("noMatches");
   const rows = [...contentEl.querySelectorAll(".block")];
   let favOnlyOn = false;
+
+  // Bölümler (chapters): her çip, o bölümün başladığı zamana en yakın (>=) transcript satırına kaydırır.
+  document.querySelectorAll(".chapter-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const sec = Number(chip.dataset.sec);
+      const idx = blocks.findIndex((b) => b.sec != null && b.sec >= sec);
+      (idx === -1 ? rows[rows.length - 1] : rows[idx])?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  // ------------------------------------------------------------ videoyla senkron takip (follow-along)
+  // youtube_sync.js YouTube sekmesinden oynatma zamanını background.js'e bildiriyor, o da eşleşen
+  // (videoId'si aynı olan) görüntüleyici sekmesine iletiyor. Burada sadece dinleyip o ana kadar
+  // konuşulmuş SON bloğu vurguluyor/kaydırıyoruz — gerçek videoyu izlerken transcript kendiliğinden takip
+  // ediyor. Kayıt (register) YouTube sekmesi açıkken bile sadece kullanıcı açıkça 🔗'yi açtığında olur —
+  // varsayılan kapalı, sürpriz kaydırma/otomatik davranış istemiyoruz.
+  if (ytVideoId) {
+    const syncBtn = document.getElementById("syncBtn");
+    let syncOn = false;
+    let lastSyncIdx = -1;
+
+    function clearSyncHighlight() {
+      if (lastSyncIdx !== -1 && rows[lastSyncIdx]) rows[lastSyncIdx].classList.remove("synced");
+      lastSyncIdx = -1;
+    }
+
+    function onTimeSync(currentTime) {
+      if (!syncOn) return;
+      let idx = -1;
+      for (let i = 0; i < blocks.length; i++) {
+        if (blocks[i].sec != null && blocks[i].sec <= currentTime) idx = i; else break;
+      }
+      if (idx === -1 || idx === lastSyncIdx) return;
+      clearSyncHighlight();
+      lastSyncIdx = idx;
+      rows[idx].classList.add("synced");
+      rows[idx].scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg?.type === "skimcast-time-sync") onTimeSync(msg.currentTime);
+    });
+
+    syncBtn.addEventListener("click", () => {
+      syncOn = !syncOn;
+      syncBtn.classList.toggle("active", syncOn);
+      if (syncOn) {
+        chrome.runtime.sendMessage({ type: "skimcast-register-viewer", videoId: ytVideoId }).catch(() => {});
+      } else {
+        clearSyncHighlight();
+        chrome.runtime.sendMessage({ type: "skimcast-register-viewer", videoId: null }).catch(() => {});
+      }
+    });
+
+    window.addEventListener("beforeunload", () => {
+      if (syncOn) chrome.runtime.sendMessage({ type: "skimcast-register-viewer", videoId: null }).catch(() => {});
+    });
+  }
 
   function applyFilters() {
     const q = searchInput.value.trim().toLocaleLowerCase("tr");

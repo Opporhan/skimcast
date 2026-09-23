@@ -49,6 +49,21 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 }
 .search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
+/* "Bunu hatırlıyor musun?" — eski bir favoriyi günlük olarak hatırlatan kart, boşken hiçbir yer kaplamaz. */
+.resurface-card {
+  position: relative; background: var(--accent-soft); border-radius: 14px; padding: 14px 40px 14px 16px;
+  margin-bottom: 20px;
+}
+.resurface-label { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.resurface-link { display: block; text-decoration: none; color: inherit; }
+.resurface-snippet { font-size: 14px; color: var(--text); }
+.resurface-meta { margin-top: 6px; font-size: 12px; color: var(--text-muted); }
+.resurface-close {
+  position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; padding: 0; border-radius: 50%;
+  background: none; color: var(--text-muted); font-size: 15px; line-height: 1;
+}
+.resurface-close:hover { background: rgba(0, 0, 0, .08); color: var(--text); }
+
 .folders-section { margin-bottom: 20px; }
 .folder-grid { display: flex; flex-wrap: wrap; gap: 10px; }
 .folder-card {
@@ -123,6 +138,7 @@ button:hover { filter: brightness(.96); }
 .row-actions .delete:hover { color: #d70015; }
 
 .fav-row .snippet { color: var(--text); font-size: 14px; }
+.fav-note { margin-top: 5px; font-size: 12px; color: var(--text-muted); }
 .mini-tag { font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 1px 7px; }
 .row-actions .move-fav, .row-actions .edit-fav { font-size: 14px; }
 

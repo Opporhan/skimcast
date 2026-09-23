@@ -225,11 +225,13 @@ async function getAllHighlights(index) {
 
 function highlightRowHtml(h) {
   const folderTag = h.folder ? `<span class="mini-tag">${escapeHtml(h.folder)}</span>` : "";
+  const noteLine = h.note ? `<div class="fav-note">📝 ${escapeHtml(h.note)}</div>` : "";
   return `
     <div class="row fav-row">
       <div class="row-main">
         <a class="title" href="viewer.html?id=${encodeURIComponent(h.videoId)}">${escapeHtml(h.videoTitle || "(başlıksız)")}</a>
         <div class="snippet">"${escapeHtml(h.text)}" ${folderTag}</div>
+        ${noteLine}
       </div>
       <div class="row-actions">
         <button class="move-fav" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}" title="${escapeHtml(t("move_to_folder_title"))}">📁</button>
@@ -239,9 +241,10 @@ function highlightRowHtml(h) {
     </div>`;
 }
 
-// Favoriyi (yıldızlanmış an) metnini düzenlemek için: yeni bir sayfa değil, ortalanmış küçük bir panel
-// (aynı modal deseni). "Panel çok karışık olmasın" isteğine göre tek bir metin alanı + iki düğme.
-function openEditFavModal(currentText) {
+// Favoriyi (yıldızlanmış an) düzenlemek için: yeni bir sayfa değil, ortalanmış küçük bir panel
+// (aynı modal deseni). Alıntının kendi metni + ayrıca (isteğe bağlı) kişisel bir not — ikisi ayrı
+// şeyler: metin alıntının ta kendisi, not ise kullanıcının o alıntıya dair kendi yorumu.
+function openEditFavModal(currentText, currentNote) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
@@ -249,16 +252,23 @@ function openEditFavModal(currentText) {
       <div class="modal modal-large">
         <h2>${t("edit_folder_hint")}</h2>
         <textarea id="editFavText" class="snippet-edit snippet-edit-large"></textarea>
+        <textarea id="editFavNote" class="snippet-edit" placeholder="${escapeHtml(t("fav_note_placeholder"))}"></textarea>
         <div class="modal-actions"><span class="spacer"></span><button id="editCancel">${t("modal_cancel")}</button><button id="editSave" class="primary">${t("modal_save")}</button></div>
       </div>`;
     document.body.appendChild(overlay);
     const textarea = overlay.querySelector("#editFavText");
+    const noteArea = overlay.querySelector("#editFavNote");
     textarea.value = currentText; // innerHTML yerine .value: tırnak içeren metinlerde daha güvenli
+    noteArea.value = currentNote || "";
     requestAnimationFrame(() => { textarea.focus(); textarea.selectionStart = textarea.value.length; });
     const close = (v) => { overlay.remove(); resolve(v); };
     overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
     overlay.querySelector("#editCancel").addEventListener("click", () => close(null));
-    overlay.querySelector("#editSave").addEventListener("click", () => close(textarea.value.trim() || null));
+    overlay.querySelector("#editSave").addEventListener("click", () => {
+      const text = textarea.value.trim();
+      if (!text) { close(null); return; }
+      close({ text, note: noteArea.value.trim() });
+    });
   });
 }
 
@@ -307,6 +317,54 @@ async function updateHighlight(videoId, hKey, patch) {
   await chrome.storage.local.set({ [fk]: full });
 }
 
+// ------------------------------------------------------------ "bunu hatırlıyor musun?" (eski favorileri hatırlatma)
+// Readwise'ın "resurfacing" fikri: arşive kaydedip unuttuğun eski favorileri zaman zaman tekrar karşına
+// çıkarmak. Günlük, deterministik bir seçim yapıyoruz (Date.now()'a göre sabit bir indeks) — böylece aynı
+// gün içinde sayfa her açıldığında AYNI an gösteriliyor (rastgele her seferinde değişip can sıkmıyor),
+// ertesi gün otomatik değişiyor. En az 2 gün eski favoriler arasından seçiyoruz — az önce eklenen bir şeyi
+// "hatırlat" demenin bir anlamı yok.
+const RESURFACE_MIN_AGE_MS = 2 * 24 * 60 * 60 * 1000;
+const RESURFACE_DISMISS_KEY = "skimcastResurfaceDismissed";
+
+function pickResurfaceHighlight(allHighlights) {
+  const eligible = allHighlights.filter((h) => h.starred !== false && Date.now() - h.ts >= RESURFACE_MIN_AGE_MS);
+  if (!eligible.length) return null;
+  const dayIndex = Math.floor(Date.now() / 86400000);
+  return eligible[dayIndex % eligible.length];
+}
+
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+async function isDismissedToday(hKey) {
+  const { [RESURFACE_DISMISS_KEY]: d } = await chrome.storage.local.get(RESURFACE_DISMISS_KEY);
+  return !!d && d.date === todayStr() && d.key === hKey;
+}
+
+async function dismissResurfaceToday(hKey) {
+  await chrome.storage.local.set({ [RESURFACE_DISMISS_KEY]: { date: todayStr(), key: hKey } });
+}
+
+async function renderResurfaceCard(allHighlights) {
+  const card = document.getElementById("resurfaceCard");
+  if (!card) return;
+  const pick = pickResurfaceHighlight(allHighlights);
+  if (!pick || await isDismissedToday(pick.key)) { card.innerHTML = ""; return; }
+  card.innerHTML = `
+    <div class="resurface-card">
+      <button class="resurface-close" title="${escapeHtml(t("modal_cancel"))}">×</button>
+      <div class="resurface-label">${t("resurface_label")}</div>
+      <a class="resurface-link" href="viewer.html?id=${encodeURIComponent(pick.videoId)}">
+        <div class="resurface-snippet">"${escapeHtml(pick.text)}"</div>
+        <div class="resurface-meta">${escapeHtml(pick.videoTitle || "")} · ${relativeDate(pick.ts)}</div>
+      </a>
+    </div>`;
+  card.querySelector(".resurface-close").addEventListener("click", async (e) => {
+    e.preventDefault();
+    await dismissResurfaceToday(pick.key);
+    card.innerHTML = "";
+  });
+}
+
 async function init() {
   await initLang();
   const app = document.getElementById("app");
@@ -322,6 +380,7 @@ async function init() {
       </div>
     </header>
     <input id="search" class="search-input" type="text" placeholder="${escapeHtml(t("library_search_placeholder"))}">
+    <div id="resurfaceCard"></div>
 
     <section class="folders-section">
       <h2>${t("folders_section_title")}</h2>
@@ -459,7 +518,9 @@ async function init() {
       for (const h of favs) {
         const timeLabel = h.sec != null ? ` [${fmtTime(h.sec)}]` : "";
         const link = h.url && h.sec != null ? `${h.url}${Math.floor(h.sec)}` : "";
-        md += `> ${h.text}\n> — ${h.videoTitle || "(başlıksız)"}${timeLabel}${link ? ` — [${t("open_link_label")}](${link})` : ""}\n\n`;
+        md += `> ${h.text}\n> — ${h.videoTitle || "(başlıksız)"}${timeLabel}${link ? ` — [${t("open_link_label")}](${link})` : ""}\n`;
+        if (h.note) md += `\n📝 ${h.note}\n`;
+        md += "\n";
       }
     }
 
@@ -480,6 +541,7 @@ async function init() {
   }
 
   await render();
+  await renderResurfaceCard(await getAllHighlights(index));
 
   // ------------------------------------------------------------ yedekle / geri yükle
   // Tüm klasör/favori/video verisi tarayıcının kendi deposunda duruyor — profil silinirse ya da
@@ -635,9 +697,9 @@ async function init() {
       const { [fk]: full } = await chrome.storage.local.get(fk);
       const h = full?.highlights?.find((x) => x.key === editFav.dataset.key);
       if (!h) return;
-      const newText = await openEditFavModal(h.text);
-      if (newText) {
-        await updateHighlight(editFav.dataset.videoId, editFav.dataset.key, { text: newText });
+      const result = await openEditFavModal(h.text, h.note);
+      if (result) {
+        await updateHighlight(editFav.dataset.videoId, editFav.dataset.key, { text: result.text, note: result.note });
         showToast(t("modal_save"));
       }
       render();
