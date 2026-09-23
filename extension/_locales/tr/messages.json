@@ -263,6 +263,9 @@
   "tts_play_from_hint": {
     "message": "Buradan sesli oku"
   },
+  "tts_no_voice": {
+    "message": "Bu dilde ses yok"
+  },
   "date_today": {
     "message": "bugün"
   },

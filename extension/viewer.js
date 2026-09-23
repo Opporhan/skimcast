@@ -145,6 +145,7 @@ async function init() {
     ${canSpeak ? `
     <div class="translate-bar">
       <button id="ttsBtn">🔊 ${t("tts_btn")}</button>
+      <select id="ttsVoice"></select>
       <select id="ttsRate">
         <option value="1">1x</option>
         <option value="1.25">1.25x</option>
@@ -547,11 +548,62 @@ async function init() {
   // ------------------------------------------------------------ sesli okuma (cihaz üzerinde, Web Speech API)
   // Videoyu hiç açmadan, sadece dinleyerek "tüketmek" için — ekrandaki hangi metin görünüyorsa (orijinal
   // ya da çevrilmiş) onu okuyor. Tamamen tarayıcı içinde, API anahtarı/ağ isteği yok.
+  let refreshTtsVoices = null; // çeviri dili değişince (applyTexts) ses listesini tazelemek için
   if (canSpeak) {
     const ttsBtn = document.getElementById("ttsBtn");
+    const ttsVoiceSelect = document.getElementById("ttsVoice");
     const ttsRateSelect = document.getElementById("ttsRate");
     const ttsStopBtn = document.getElementById("ttsStopBtn");
     let ttsState = "idle"; // idle | playing | paused
+    let ttsVoices = [];
+    const TTS_VOICE_KEY_PREFIX = "skimcastTtsVoice:";
+
+    // getVoices() ilk çağrıda genelde boş dizi döndürüyor, ses listesi asenkron yükleniyor.
+    function getVoicesAsync() {
+      return new Promise((resolve) => {
+        const existing = speechSynthesis.getVoices();
+        if (existing.length) { resolve(existing); return; }
+        speechSynthesis.addEventListener("voiceschanged", () => resolve(speechSynthesis.getVoices()), { once: true });
+        setTimeout(() => resolve(speechSynthesis.getVoices()), 500); // bazı tarayıcılarda olay hiç gelmiyor
+      });
+    }
+
+    function voicesForLang(langCode) {
+      if (!langCode) return ttsVoices;
+      const base = langCode.split("-")[0].toLowerCase();
+      return ttsVoices.filter((v) => v.lang.toLowerCase().startsWith(base));
+    }
+
+    // Kaliteli (nöral/"Natural") sesleri öne alıyoruz — tarayıcının kendi varsayılan sıralaması genelde
+    // en eski/en robotik sesi ilk sıraya koyuyor, "kötü ve korkunç" hissi büyük ölçüde buradan geliyordu.
+    function sortVoicesByQuality(voices) {
+      const score = (v) => (/natural|neural|premium/i.test(v.name) ? 0 : 1);
+      return [...voices].sort((a, b) => score(a) - score(b));
+    }
+
+    async function populateTtsVoices() {
+      const lang = state.lang || sourceLang;
+      const langVoices = sortVoicesByQuality(voicesForLang(lang));
+      if (!langVoices.length) {
+        ttsVoiceSelect.innerHTML = `<option value="">${escapeHtml(t("tts_no_voice"))}</option>`;
+        ttsVoiceSelect.disabled = true;
+        return;
+      }
+      ttsVoiceSelect.disabled = false;
+      // "Microsoft "/"Google " öneki tekrar ediyor, kısaltıp gerçek ses adını (genelde bir kişi adı,
+      // dolayısıyla kadın/erkek ayrımı da bundan anlaşılıyor) öne çıkarıyoruz.
+      ttsVoiceSelect.innerHTML = langVoices.map((v) =>
+        `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name.replace(/^(Microsoft|Google)\s+/, ""))}</option>`).join("");
+      const voiceKey = TTS_VOICE_KEY_PREFIX + lang;
+      const { [voiceKey]: saved } = await chrome.storage.local.get(voiceKey);
+      if (saved && langVoices.some((v) => v.name === saved)) ttsVoiceSelect.value = saved;
+    }
+    refreshTtsVoices = populateTtsVoices;
+
+    ttsVoiceSelect.addEventListener("change", () => {
+      const lang = state.lang || sourceLang;
+      chrome.storage.local.set({ [TTS_VOICE_KEY_PREFIX + lang]: ttsVoiceSelect.value });
+    });
 
     function ttsUpdateBtn() {
       ttsBtn.textContent = ttsState === "playing" ? `⏸ ${t("tts_pause_btn")}`
@@ -566,10 +618,12 @@ async function init() {
       const utter = new SpeechSynthesisUtterance(text);
       utter.rate = parseFloat(ttsRateSelect.value);
       // Ekranda o an görünen dile göre ses seçiliyor: çevrilmişse hedef dil, değilse tespit edilen
-      // kaynak dil — hiç ayarlanmazsa tarayıcı varsayılan (genelde İngilizce) sesle okumaya çalışıp
-      // Türkçe (ya da başka dildeki) metni yanlış telaffuz ediyordu.
+      // kaynak dil. Seçtiğin ses varsa (ttsVoiceSelect) doğrudan onu kullanıyoruz — sadece lang
+      // belirtmek tarayıcının rastgele/düşük kaliteli bir sesi seçmesine yol açabiliyordu.
       const lang = state.lang || sourceLang;
       if (lang) utter.lang = lang;
+      const chosenVoice = ttsVoices.find((v) => v.name === ttsVoiceSelect.value);
+      if (chosenVoice) utter.voice = chosenVoice;
       utter.onend = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
       utter.onerror = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
       rows.forEach((r) => r.classList.remove("reading"));
@@ -616,6 +670,9 @@ async function init() {
       playFromBtn.addEventListener("click", (ev) => { ev.stopPropagation(); ttsPlayFrom(i); });
       row.appendChild(playFromBtn);
     });
+
+    ttsVoices = await getVoicesAsync();
+    await populateTtsVoices();
   }
 
   // ------------------------------------------------------------ çeviri (cihaz üzerinde)
@@ -652,6 +709,7 @@ async function init() {
     });
     applyFilters();
     originalBtn.hidden = lang === null;
+    refreshTtsVoices?.(); // dil değişti, sesli okuma listesi de bu dile göre güncellensin
   }
 
   translateBtn.addEventListener("click", async () => {

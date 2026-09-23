@@ -263,6 +263,9 @@
   "tts_play_from_hint": {
     "message": "Read aloud from here"
   },
+  "tts_no_voice": {
+    "message": "No voice for this language"
+  },
   "date_today": {
     "message": "today"
   },
