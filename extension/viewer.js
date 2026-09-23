@@ -81,10 +81,13 @@ async function detectSourceLanguage(sampleText) {
 // olsun görülebiliyor). Bunları temizliyoruz; temizlik sonrası metin boş kalırsa (tamamen sızıntıdan
 // ibaretse) orijinal metne düşüyoruz — hiçbir zaman bozuk/anlamsız bir çıktı gösterilmiyor.
 const LEAKED_TAG_RE = /<\/?[a-zA-Z][a-zA-Z0-9]*\/?>/g;
-const LEAKED_QUOTE_RE = />{2,}(\s*>+)*/g; // ">>", ">> >>" gibi tekrarlı ok/alıntı işaretleri
 function cleanTranslation(text, fallback) {
   if (!text) return fallback;
-  const cleaned = text.replace(LEAKED_TAG_RE, "").replace(LEAKED_QUOTE_RE, "").replace(/\s{2,}/g, " ").trim();
+  let cleaned = text.replace(LEAKED_TAG_RE, "");
+  // ">>" tek bir kalıba uymuyor — bazen "> >", bazen ">>>>" şeklinde sızıyor. Önceki tek regex bunların
+  // hepsini yakalamıyordu; kelime kelime ayırıp tamamen ">" karakterlerinden ibaret olan parçaları atmak
+  // (kaç tane ve nasıl boşluklu olursa olsun) daha güvenilir.
+  cleaned = cleaned.split(/\s+/).filter((tok) => tok && !/^>+$/.test(tok)).join(" ").trim();
   return cleaned || fallback;
 }
 
@@ -535,6 +538,12 @@ async function init() {
     showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
   });
 
+  // Kaynak dili hem çeviri hem sesli okuma kullanıyor — burada bir kere tespit edip ikisine de
+  // veriyoruz. Sesli okuma bunu almadan önce hep İngilizce/varsayılan sesle okumaya çalışıyordu
+  // (Türkçe metni yanlış telaffuzla), çünkü dil hiç belirtilmiyordu.
+  const sourceLang = (canSpeak || canTranslate)
+    ? await detectSourceLanguage(blocks.map((b) => b.text).join(" ")) : null;
+
   // ------------------------------------------------------------ sesli okuma (cihaz üzerinde, Web Speech API)
   // Videoyu hiç açmadan, sadece dinleyerek "tüketmek" için — ekrandaki hangi metin görünüyorsa (orijinal
   // ya da çevrilmiş) onu okuyor. Tamamen tarayıcı içinde, API anahtarı/ağ isteği yok.
@@ -556,7 +565,11 @@ async function init() {
       if (!text.trim()) { ttsSpeakFrom(index + 1); return; } // boş satırı atla
       const utter = new SpeechSynthesisUtterance(text);
       utter.rate = parseFloat(ttsRateSelect.value);
-      if (state.lang) utter.lang = state.lang; // çevrilmişse hedef dile göre doğru telaffuz
+      // Ekranda o an görünen dile göre ses seçiliyor: çevrilmişse hedef dil, değilse tespit edilen
+      // kaynak dil — hiç ayarlanmazsa tarayıcı varsayılan (genelde İngilizce) sesle okumaya çalışıp
+      // Türkçe (ya da başka dildeki) metni yanlış telaffuz ediyordu.
+      const lang = state.lang || sourceLang;
+      if (lang) utter.lang = lang;
       utter.onend = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
       utter.onerror = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
       rows.forEach((r) => r.classList.remove("reading"));
@@ -572,20 +585,37 @@ async function init() {
       ttsUpdateBtn();
     }
 
+    function ttsPlayFrom(index) {
+      ttsState = "playing";
+      ttsUpdateBtn();
+      ttsSpeakFrom(index);
+    }
+
     ttsBtn.addEventListener("click", () => {
       if (ttsState === "idle") {
-        ttsState = "playing";
-        ttsSpeakFrom(0);
+        ttsPlayFrom(0);
       } else if (ttsState === "playing") {
         speechSynthesis.pause();
         ttsState = "paused";
+        ttsUpdateBtn();
       } else {
         speechSynthesis.resume();
         ttsState = "playing";
+        ttsUpdateBtn();
       }
-      ttsUpdateBtn();
     });
     ttsStopBtn.addEventListener("click", ttsStop);
+
+    // Her satırın yanındaki "▶" — sadece istediğin yerden, o satırdan itibaren okumaya başlatıyor
+    // (baştan dinlemek zorunda kalmadan).
+    rows.forEach((row, i) => {
+      const playFromBtn = document.createElement("button");
+      playFromBtn.className = "tts-play-from";
+      playFromBtn.title = t("tts_play_from_hint");
+      playFromBtn.textContent = "▶";
+      playFromBtn.addEventListener("click", (ev) => { ev.stopPropagation(); ttsPlayFrom(i); });
+      row.appendChild(playFromBtn);
+    });
   }
 
   // ------------------------------------------------------------ çeviri (cihaz üzerinde)
@@ -596,7 +626,6 @@ async function init() {
   const originalBtn = document.getElementById("originalBtn");
   const statusEl = document.getElementById("translateStatus");
 
-  const sourceLang = await detectSourceLanguage(blocks.map((b) => b.text).join(" "));
   if (!sourceLang) {
     statusEl.hidden = false;
     statusEl.textContent = t("translate_no_source");

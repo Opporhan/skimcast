@@ -145,6 +145,11 @@ button:hover { filter: brightness(.96); }
 
 /* Sesli okuma sırasında o an okunan satır */
 .block.reading { background: var(--accent-soft); }
+.block .tts-play-from {
+  flex-shrink: 0; font-size: 12px; padding: 3px 7px; line-height: 1; background: none;
+  color: var(--text-muted); cursor: pointer;
+}
+.block .tts-play-from:hover { color: var(--accent); background: var(--accent-soft); border-radius: 8px; }
 
 .toast {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(8px);

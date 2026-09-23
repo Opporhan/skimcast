@@ -260,6 +260,9 @@
   "tts_stop_btn": {
     "message": "Stop"
   },
+  "tts_play_from_hint": {
+    "message": "Read aloud from here"
+  },
   "date_today": {
     "message": "today"
   },

@@ -260,6 +260,9 @@
   "tts_stop_btn": {
     "message": "Durdur"
   },
+  "tts_play_from_hint": {
+    "message": "Buradan sesli oku"
+  },
   "date_today": {
     "message": "bugün"
   },
