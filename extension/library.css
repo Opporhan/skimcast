@@ -102,11 +102,13 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 .folder-count { font-size: 11px; color: var(--text-muted); }
 .folder-card.active .folder-count { color: var(--accent); opacity: .8; }
 .folder-card-add {
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px;
-  flex: 0 0 108px; width: 108px; height: 70px; padding: 14px; border-radius: 14px; text-align: left;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px;
+  flex: 0 0 132px; width: 132px; height: 88px; padding: 16px; border-radius: 16px; text-align: left;
   color: var(--text-muted); border: 1.5px dashed var(--border); background: transparent; box-sizing: border-box;
 }
 .folder-card-add:hover { background: var(--bg-subtle); color: var(--text); }
+.folder-card-add .folder-icon { font-size: 24px; }
+.folder-card-add .folder-name { font-size: 14px; }
 .folder-edit-btn {
   /* Not hover-only: daha önce hover'da görünen düğmeler fark edilmiyordu, o yüzden hep görünür. */
   position: absolute; top: 8px; right: 8px; width: 22px; height: 22px; padding: 0;
