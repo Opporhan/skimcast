@@ -101,8 +101,8 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 .folder-count { font-size: 11px; color: var(--text-muted); }
 .folder-card.active .folder-count { color: var(--accent); opacity: .8; }
 .folder-card-add {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-  flex: 0 0 108px; width: 108px; padding: 14px; border-radius: 14px; text-align: left;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px;
+  flex: 0 0 108px; width: 108px; height: 70px; padding: 14px; border-radius: 14px; text-align: left;
   color: var(--text-muted); border: 1.5px dashed var(--border); background: transparent; box-sizing: border-box;
 }
 .folder-card-add:hover { background: var(--bg-subtle); color: var(--text); }
