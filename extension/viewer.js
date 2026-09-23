@@ -476,8 +476,21 @@ async function init() {
       }
     }
 
+    // "Sessizce çalışmıyor" durumunu fark edilir kılmak için: 🔗'yi açtıktan sonra birkaç saniye içinde
+    // hiç zaman güncellemesi gelmezse (en sık sebep: YouTube sekmesi, içerik betiği eklenmeden ÖNCE zaten
+    // açıktı — uzantı yeniden yüklense bile açık sekmelere yeni içerik betiği enjekte edilmiyor) kullanıcıya
+    // ne yapması gerektiğini söylüyoruz, sessizce "hiçbir şey olmuyormuş" hissi bırakmıyoruz.
+    let syncWatchdog = null;
+    function armSyncWatchdog() {
+      clearTimeout(syncWatchdog);
+      syncWatchdog = setTimeout(() => { if (syncOn) showToast(t("sync_no_signal_toast")); }, 4000);
+    }
+
     chrome.runtime.onMessage.addListener((msg) => {
-      if (msg?.type === "skimcast-time-sync") onTimeSync(msg.currentTime);
+      if (msg?.type === "skimcast-time-sync") {
+        clearTimeout(syncWatchdog);
+        onTimeSync(msg.currentTime);
+      }
     });
 
     syncBtn.addEventListener("click", () => {
@@ -485,8 +498,10 @@ async function init() {
       syncBtn.classList.toggle("active", syncOn);
       if (syncOn) {
         chrome.runtime.sendMessage({ type: "skimcast-register-viewer", videoId: ytVideoId }).catch(() => {});
+        armSyncWatchdog();
       } else {
         clearSyncHighlight();
+        clearTimeout(syncWatchdog);
         chrome.runtime.sendMessage({ type: "skimcast-register-viewer", videoId: null }).catch(() => {});
       }
     });

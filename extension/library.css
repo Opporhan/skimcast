@@ -50,12 +50,14 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 }
 .search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
-.video-note-box { margin: 0 0 16px; }
-.video-note {
-  width: 100%; min-height: 80px; padding: 11px 14px; border: none; border-radius: 12px;
-  background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 14px; resize: vertical;
+/* Not oluştur/düzenle panelinde başlık alanı (gövde zaten .snippet-edit-large kullanıyor). */
+.note-title-input {
+  width: 100%; margin-top: 6px; padding: 10px 12px; border: none; border-radius: 8px;
+  background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 15px; font-weight: 600;
 }
-.video-note:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.note-title-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.note-row .note-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.note-row .row-actions .move-note, .note-row .row-actions .edit-note { font-size: 14px; }
 
 /* "Bunu hatırlıyor musun?" — eski bir favoriyi günlük olarak hatırlatan kart, boşken hiçbir yer kaplamaz. */
 .resurface-card {

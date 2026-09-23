@@ -365,30 +365,79 @@ async function renderResurfaceCard(allHighlights) {
   });
 }
 
-// ------------------------------------------------------------ genel kişisel not defteri
-// Belirli bir videoyla ilgili değil — kütüphanenin kendisine ait, serbest bir not alanı (anlık fikirler,
-// yapılacaklar, vb.). Tek bir depolama anahtarında (skimcastGeneralNote) duruyor, tüm arşivden bağımsız.
-const GENERAL_NOTE_KEY = "skimcastGeneralNote";
+// ------------------------------------------------------------ notlar (bağımsız içerik türü)
+// Videolardan/favorilerden bağımsız, kendi başına bir içerik türü: sıfırdan bir not oluşturabilir,
+// videolar/favoriler gibi bir klasöre taşıyabilir YA DA hiç klasöre koymadan "Tümü" görünümünde
+// bırakabilirsin — aynı VİDEOLAR için geçerli olan mantık (bkz. renderList: "Tümü" hepsini gösterir,
+// belirli bir klasör sadece o klasördekileri).
+const NOTES_KEY = "skimcastNotes";
 
-async function initGeneralNote() {
-  const notesBtn = document.getElementById("notesBtn");
-  const box = document.getElementById("generalNoteBox");
-  const textarea = document.getElementById("generalNoteText");
-  const { [GENERAL_NOTE_KEY]: saved = "" } = await chrome.storage.local.get(GENERAL_NOTE_KEY);
-  textarea.value = saved;
-  notesBtn.classList.toggle("active", !!saved);
-  notesBtn.addEventListener("click", () => {
-    box.hidden = !box.hidden;
-    if (!box.hidden) textarea.focus();
-  });
-  let saveTimer = null;
-  textarea.addEventListener("input", () => {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      const value = textarea.value.trim();
-      await chrome.storage.local.set({ [GENERAL_NOTE_KEY]: value });
-      notesBtn.classList.toggle("active", !!value);
-    }, 500);
+async function getNotes() {
+  const { [NOTES_KEY]: notes = [] } = await chrome.storage.local.get(NOTES_KEY);
+  return notes;
+}
+
+async function saveNotes(notes) {
+  await chrome.storage.local.set({ [NOTES_KEY]: notes });
+}
+
+function newNoteId() {
+  return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function noteRowHtml(n) {
+  const folderTag = n.folder ? `<span class="mini-tag">${escapeHtml(n.folder)}</span>` : "";
+  const preview = n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body;
+  return `
+    <div class="row note-row">
+      <div class="row-main">
+        <div class="title note-title">📝 ${escapeHtml(n.title || t("untitled_note"))}</div>
+        <div class="snippet">${escapeHtml(preview)} ${folderTag}</div>
+        <div class="row-meta">${relativeDate(n.ts)}</div>
+      </div>
+      <div class="row-actions">
+        <button class="move-note" data-note-id="${escapeHtml(n.id)}" title="${escapeHtml(t("move_to_folder_title"))}">📁</button>
+        <button class="edit-note" data-note-id="${escapeHtml(n.id)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>
+      </div>
+    </div>`;
+}
+
+// Yeni not oluşturmak İÇİN de, var olan bir notu düzenlemek İÇİN de aynı panel — başlık + gövde.
+// existing verilirse "Sil" düğmesi de eklenir.
+function openNoteModal(existing) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal modal-large">
+        <h2>${existing ? t("edit_note_title") : t("new_note_title")}</h2>
+        <input id="noteTitleInput" class="note-title-input" placeholder="${escapeHtml(t("note_title_placeholder"))}">
+        <textarea id="noteBodyInput" class="snippet-edit snippet-edit-large" placeholder="${escapeHtml(t("note_body_placeholder"))}"></textarea>
+        <div class="modal-actions">
+          <span class="spacer"></span>
+          ${existing ? `<button id="noteDeleteBtn">${t("modal_delete")}</button>` : ""}
+          <button id="noteCancelBtn">${t("modal_cancel")}</button>
+          <button id="noteSaveBtn" class="primary">${t("modal_save")}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const titleInput = overlay.querySelector("#noteTitleInput");
+    const bodyInput = overlay.querySelector("#noteBodyInput");
+    titleInput.value = existing?.title || "";
+    bodyInput.value = existing?.body || "";
+    requestAnimationFrame(() => titleInput.focus());
+    const close = (v) => { overlay.remove(); resolve(v); };
+    overlay.addEventListener("mousedown", (e) => { if (e.target === overlay) close(null); });
+    overlay.querySelector("#noteCancelBtn").addEventListener("click", () => close(null));
+    if (existing) {
+      overlay.querySelector("#noteDeleteBtn").addEventListener("click", () => close({ delete: true }));
+    }
+    overlay.querySelector("#noteSaveBtn").addEventListener("click", () => {
+      const title = titleInput.value.trim();
+      const body = bodyInput.value.trim();
+      if (!title && !body) { close(null); return; }
+      close({ title, body });
+    });
   });
 }
 
@@ -402,14 +451,11 @@ async function init() {
         <h1>${t("library_title")}</h1>
       </div>
       <div class="header-btns">
-        <button id="notesBtn" class="theme-btn" title="${escapeHtml(t("general_note_hint"))}">📝</button>
+        <button id="newNoteBtn" class="theme-btn" title="${escapeHtml(t("new_note_hint"))}">📝</button>
         <button id="langBtn" class="theme-btn" title="Language"></button>
         <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
       </div>
     </header>
-    <div id="generalNoteBox" class="video-note-box" hidden>
-      <textarea id="generalNoteText" class="video-note" placeholder="${escapeHtml(t("general_note_placeholder"))}"></textarea>
-    </div>
     <input id="search" class="search-input" type="text" placeholder="${escapeHtml(t("library_search_placeholder"))}">
     <div id="resurfaceCard"></div>
 
@@ -438,7 +484,6 @@ async function init() {
   `;
   mountThemeButton(document.getElementById("themeBtn"));
   mountLangButton(document.getElementById("langBtn"));
-  await initGeneralNote();
 
   const toastEl = document.getElementById("toast");
   let toastTimer = null;
@@ -464,14 +509,15 @@ async function init() {
   // klasöre taşımak "taşındı" diyordu ama o klasöre tıklayınca (sadece videoları gösteren renderList)
   // hiçbir şey görünmüyordu, sayaç da sadece videoları saydığı için 0 kalıyordu. Artık ikisi de aynı
   // sayımda ve aynı listede birleşiyor.
-  function countFor(name, allHighlights) {
+  function countFor(name, allHighlights, allNotes) {
     if (name === null) return index.length; // "Tümü" = video kütüphanesi
     const videoCount = index.filter((e) => e.folder === name).length;
     const favCount = allHighlights.filter((h) => (h.folder || NO_FOLDER) === name).length;
-    return videoCount + favCount;
+    const noteCount = allNotes.filter((n) => (n.folder || NO_FOLDER) === name).length;
+    return videoCount + favCount + noteCount;
   }
 
-  function renderFolderCards(allHighlights) {
+  function renderFolderCards(allHighlights, allNotes) {
     // Sabitlenen klasörler ("📌 Bu klasörü sabitle") en sık kullandıklarında her seferinde aramamak için
     // en başa geliyor — "Tümü" her zaman ilk sırada kalıyor.
     const sortedFolders = [...folders].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
@@ -482,7 +528,7 @@ async function init() {
         ${!f.system ? `<button class="folder-edit-btn" data-folder="${escapeHtml(f.name)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>` : ""}
         <span class="folder-icon">${iconHtml(f.icon)}</span>
         <span class="folder-name">${escapeHtml(f.label)}</span>
-        <span class="folder-count">${countFor(f.name, allHighlights)}</span>
+        <span class="folder-count">${countFor(f.name, allHighlights, allNotes)}</span>
       </div>`).join("") +
       `<button class="folder-card folder-card-add" id="newFolderBtn">
         <span class="folder-icon">＋</span>
@@ -490,12 +536,16 @@ async function init() {
       </button>`;
   }
 
-  // Belirli bir klasördeyken (Tümü değil) o klasördeki videoları VE favorileri aynı listede gösterir —
-  // "klasöre taşı" artık gerçekten o klasörün normal içeriğine düşüyor, ayrı bir sekmede gizli kalmıyor.
-  function renderList(allHighlights) {
+  // Belirli bir klasördeyken (Tümü değil) o klasördeki videoları, favorileri VE notları aynı listede
+  // gösterir — "klasöre taşı" gerçekten o klasörün normal içeriğine düşüyor, ayrı bir sekmede gizli
+  // kalmıyor. Notlar VİDEOLAR gibi davranıyor: "Tümü"de her zaman görünürler (klasörlü olsun olmasın),
+  // belirli bir klasördeyken sadece o klasördekiler — böylece klasör dışında da rahatça durabiliyorlar.
+  function renderList(allHighlights, allNotes) {
     const filtered = activeFolder === null ? index : index.filter((e) => e.folder === activeFolder);
     const sorted = sortIndex(filtered, sortSelect.value);
     let html = sorted.map((e) => entryRowHtml(e, folders)).join("");
+    const notesFiltered = activeFolder === null ? allNotes : allNotes.filter((n) => (n.folder || NO_FOLDER) === activeFolder);
+    html += notesFiltered.map(noteRowHtml).join("");
     if (activeFolder !== null) {
       const favsHere = allHighlights.filter((h) => (h.folder || NO_FOLDER) === activeFolder);
       html += favsHere.map(highlightRowHtml).join("");
@@ -505,7 +555,7 @@ async function init() {
 
   async function renderSearch(query) {
     const results = await searchArchive(query, index);
-    if (results === null) { renderList(await getAllHighlights(index)); return; }
+    if (results === null) { renderList(await getAllHighlights(index), await getNotes()); return; }
     listEl.innerHTML = results.length
       ? results.map((r) => `
           <div class="row">
@@ -567,9 +617,10 @@ async function init() {
 
   async function render() {
     const allHighlights = await getAllHighlights(index);
-    renderFolderCards(allHighlights);
+    const allNotes = await getNotes();
+    renderFolderCards(allHighlights, allNotes);
     if (favView) { renderFavoritesView(allHighlights); return; }
-    searchInput.value.trim() ? await renderSearch(searchInput.value) : renderList(allHighlights);
+    searchInput.value.trim() ? await renderSearch(searchInput.value) : renderList(allHighlights, allNotes);
   }
 
   await render();
@@ -750,7 +801,50 @@ async function init() {
       await updateHighlight(moveFav.dataset.videoId, moveFav.dataset.key, { folder: result.folder });
       showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
       render();
+      return;
     }
+    const editNote = e.target.closest(".edit-note");
+    if (editNote) {
+      const notes = await getNotes();
+      const n = notes.find((x) => x.id === editNote.dataset.noteId);
+      if (!n) return;
+      const result = await openNoteModal(n);
+      if (!result) return;
+      if (result.delete) {
+        await saveNotes(notes.filter((x) => x.id !== n.id));
+        showToast(t("modal_delete"));
+      } else {
+        await saveNotes(notes.map((x) => (x.id === n.id ? { ...x, title: result.title, body: result.body } : x)));
+        showToast(t("modal_save"));
+      }
+      render();
+      return;
+    }
+    const moveNote = e.target.closest(".move-note");
+    if (moveNote) {
+      const result = await openMoveFavModal(folders);
+      if (!result) return;
+      if (result.isNew && !folders.some((f) => f.name === result.folder)) {
+        folders.push({ name: result.folder, icon: "📁" });
+        await saveFolders(folders);
+      }
+      const notes = await getNotes();
+      await saveNotes(notes.map((x) => (x.id === moveNote.dataset.noteId ? { ...x, folder: result.folder } : x)));
+      showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
+      render();
+    }
+  });
+
+  // "+ Yeni Not" — sıfırdan, hiçbir videoya bağlı olmayan bir not oluşturur; sonra istersen "📁" ile
+  // bir klasöre taşıyabilirsin, taşımazsan "Tümü" görünümünde durmaya devam eder (VİDEOLARLA aynı mantık).
+  document.getElementById("newNoteBtn").addEventListener("click", async () => {
+    const result = await openNoteModal(null);
+    if (!result) return;
+    const notes = await getNotes();
+    notes.unshift({ id: newNoteId(), title: result.title, body: result.body, folder: "", ts: Date.now() });
+    await saveNotes(notes);
+    showToast(t("modal_save"));
+    render();
   });
 }
 

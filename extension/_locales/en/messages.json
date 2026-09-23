@@ -152,11 +152,23 @@
   "fav_view_btn": {
     "message": "Favorites"
   },
-  "general_note_hint": {
-    "message": "My notes (a free scratchpad, not tied to any video)"
+  "new_note_hint": {
+    "message": "New note (not tied to any video — file it in a folder or leave it loose)"
   },
-  "general_note_placeholder": {
-    "message": "Jot down anything… (saved automatically)"
+  "new_note_title": {
+    "message": "New Note"
+  },
+  "edit_note_title": {
+    "message": "Edit Note"
+  },
+  "note_title_placeholder": {
+    "message": "Title"
+  },
+  "note_body_placeholder": {
+    "message": "Write your note…"
+  },
+  "untitled_note": {
+    "message": "(untitled note)"
   },
   "resurface_label": {
     "message": "💭 Remember this?"
@@ -217,6 +229,9 @@
   },
   "sync_hint": {
     "message": "Follows along while you watch the video in its YouTube tab — highlights and scrolls to the line being spoken. Keep the YouTube tab open."
+  },
+  "sync_no_signal_toast": {
+    "message": "No signal from the YouTube tab yet — open/refresh this video's YouTube tab (F5) and make sure it's actually playing."
   },
   "video_note_btn": {
     "message": "Note"

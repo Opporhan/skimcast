@@ -152,11 +152,23 @@
   "fav_view_btn": {
     "message": "Favoriler"
   },
-  "general_note_hint": {
-    "message": "Notlarım (herhangi bir videoya bağlı olmayan serbest not alanı)"
+  "new_note_hint": {
+    "message": "Yeni not (herhangi bir videoya bağlı değil — bir klasöre koy ya da öylece bırak)"
   },
-  "general_note_placeholder": {
-    "message": "Aklına ne gelirse yaz… (otomatik kaydedilir)"
+  "new_note_title": {
+    "message": "Yeni Not"
+  },
+  "edit_note_title": {
+    "message": "Notu Düzenle"
+  },
+  "note_title_placeholder": {
+    "message": "Başlık"
+  },
+  "note_body_placeholder": {
+    "message": "Notunu yaz…"
+  },
+  "untitled_note": {
+    "message": "(başlıksız not)"
   },
   "resurface_label": {
     "message": "💭 Bunu hatırlıyor musun?"
@@ -217,6 +229,9 @@
   },
   "sync_hint": {
     "message": "YouTube sekmesinde videoyu izlerken transcript'i takip eder — o an konuşulan satırı vurgulayıp oraya kaydırır. YouTube sekmesini açık tut."
+  },
+  "sync_no_signal_toast": {
+    "message": "YouTube sekmesinden henüz sinyal yok — bu videonun YouTube sekmesini yenile (F5) ve gerçekten oynatıldığından emin ol."
   },
   "video_note_btn": {
     "message": "Not"

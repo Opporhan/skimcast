@@ -174,8 +174,12 @@ button:hover { filter: brightness(.96); }
    ince bir vurgu çizgisiyle ayırt ediliyor, ikisi aynı anda tetiklenmez ama görsel dilde tutarlı kalsın). */
 .block.reading { background: var(--accent-soft); }
 .block.synced { background: var(--accent-soft); border-left: 3px solid var(--accent); padding-left: 5px; }
-/* O an okunan/izlenen TEK kelime — sabit sarı, iki temada da okunur kalsın diye koyu metinle. */
-.word.word-active { background: #ffd60a; color: #1d1d1f; border-radius: 3px; padding: 0 1px; }
+/* O an okunan/izlenen TEK kelime — sabit sarı dolgu + altında sarı bir çizgi, iki temada da okunur
+   kalsın diye koyu metinle. */
+.word.word-active {
+  background: #ffd60a; color: #1d1d1f; border-radius: 3px; padding: 0 1px;
+  box-shadow: 0 2px 0 0 #e0b400;
+}
 .block .tts-play-from {
   flex-shrink: 0; font-size: 12px; padding: 3px 7px; line-height: 1; background: none;
   color: var(--text-muted); cursor: pointer;
