@@ -132,29 +132,35 @@ async function init() {
       <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_only_btn")}</button>
       <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
       <button id="moveBtn">${t("move_to_folder_btn")}</button>
+      <span class="toolbar-divider"></span>
       <button id="copyBtn">${t("copy_btn")}</button>
       <button id="downloadBtn">${t("download_btn")}</button>
     </div>
     ${canTranslate ? `
-    <div class="translate-bar">
-      <select id="translateLang"></select>
-      <button id="translateBtn">${t("translate_btn")}</button>
-      <button id="originalBtn" hidden>${t("translate_original_btn")}</button>
-      <span id="translateStatus" class="hint" hidden></span>
+    <div class="toolbar-section">
+      <div class="toolbar-label">${t("section_translate")}</div>
+      <div class="translate-bar">
+        <select id="translateLang"></select>
+        <button id="translateBtn">${t("translate_btn")}</button>
+        <button id="originalBtn" hidden>${t("translate_original_btn")}</button>
+        <span id="translateStatus" class="hint" hidden></span>
+      </div>
     </div>` : ""}
     ${canSpeak ? `
-    <div class="translate-bar">
-      <button id="ttsBtn">🔊 ${t("tts_btn")}</button>
-      <select id="ttsVoice"></select>
-      <select id="ttsRate">
-        <option value="1">1x</option>
-        <option value="1.25">1.25x</option>
-        <option value="1.5" selected>1.5x</option>
-        <option value="2">2x</option>
-        <option value="2.5">2.5x</option>
-      </select>
-      <button id="ttsStopBtn" hidden>⏹ ${t("tts_stop_btn")}</button>
-      <span id="ttsRateHint" class="hint" hidden></span>
+    <div class="toolbar-section">
+      <div class="toolbar-label">${t("section_tts")}</div>
+      <div class="translate-bar">
+        <button id="ttsBtn">🔊 ${t("tts_btn")}</button>
+        <select id="ttsVoice"></select>
+        <select id="ttsRate">
+          <option value="1">1x</option>
+          <option value="1.25">1.25x</option>
+          <option value="1.5" selected>1.5x</option>
+          <option value="2">2x</option>
+          <option value="2.5">2.5x</option>
+        </select>
+        <button id="ttsStopBtn" hidden>⏹ ${t("tts_stop_btn")}</button>
+      </div>
     </div>` : ""}
     <p id="noMatches" class="hint" hidden>${t("no_matches")}</p>
     <div class="content" id="content"></div>
@@ -596,32 +602,17 @@ async function init() {
       return [...voices].sort((a, b) => score(a) - score(b));
     }
 
-    const ttsRateHint = document.getElementById("ttsRateHint");
-
-    // Araştırıldı, doğrulandı: Edge/Chrome'un çevrimiçi ("Online"/nöral) sesleri hız (rate) ayarını
-    // sunucu tarafında görmezden geliyor — bu bir kütüphane hatası değil, tarayıcının kendi kısıtlaması
-    // (ses sunucudan sabit hızda önceden üretilip akıyor). SpeechSynthesisVoice.localService bunu
-    // ayırt ediyor: false ise çevrimiçi, hız çalışmayabilir; true ise yerel, hız güvenilir çalışır.
-    function updateRateHint() {
-      const chosen = ttsVoices.find((v) => v.name === ttsVoiceSelect.value);
-      const isOnline = chosen && chosen.localService === false;
-      ttsRateHint.hidden = !isOnline;
-      if (isOnline) ttsRateHint.textContent = t("tts_rate_hint");
-    }
-
     async function populateTtsVoices() {
       const lang = state.lang || sourceLang;
       const langVoices = sortVoicesByQuality(voicesForLang(lang));
       if (!langVoices.length) {
         ttsVoiceSelect.innerHTML = `<option value="">${escapeHtml(t("tts_no_voice"))}</option>`;
         ttsVoiceSelect.disabled = true;
-        ttsRateHint.hidden = true;
         return;
       }
       ttsVoiceSelect.disabled = false;
       // "Microsoft "/"Google " öneki tekrar ediyor, kısaltıp gerçek ses adını (genelde bir kişi adı,
-      // dolayısıyla kadın/erkek ayrımı da bundan anlaşılıyor) öne çıkarıyoruz. Yerel sesler hız ayarını
-      // güvenilir uyguluyor, çevrimiçi olanlar uygulamıyor — 🌐 ile işaretliyoruz ki fark edilsin.
+      // dolayısıyla kadın/erkek ayrımı da bundan anlaşılıyor) öne çıkarıyoruz. 🌐 = çevrimiçi (nöral) ses.
       ttsVoiceSelect.innerHTML = langVoices.map((v) => {
         const label = v.name.replace(/^(Microsoft|Google)\s+/, "").replace(/\s+Online \(Natural\).*$/, "");
         return `<option value="${escapeHtml(v.name)}">${v.localService === false ? "🌐 " : ""}${escapeHtml(label)}</option>`;
@@ -629,14 +620,12 @@ async function init() {
       const voiceKey = TTS_VOICE_KEY_PREFIX + lang;
       const { [voiceKey]: saved } = await chrome.storage.local.get(voiceKey);
       if (saved && langVoices.some((v) => v.name === saved)) ttsVoiceSelect.value = saved;
-      updateRateHint();
     }
     refreshTtsVoices = populateTtsVoices;
 
     ttsVoiceSelect.addEventListener("change", () => {
       const lang = state.lang || sourceLang;
       chrome.storage.local.set({ [TTS_VOICE_KEY_PREFIX + lang]: ttsVoiceSelect.value });
-      updateRateHint();
     });
 
     function ttsUpdateBtn() {

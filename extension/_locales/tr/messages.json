@@ -224,6 +224,12 @@
   "fav_removed": {
     "message": "Favorilerden çıkarıldı"
   },
+  "section_translate": {
+    "message": "Çeviri"
+  },
+  "section_tts": {
+    "message": "Sesli Okuma"
+  },
   "translate_btn": {
     "message": "Çevir"
   },
@@ -265,9 +271,6 @@
   },
   "tts_no_voice": {
     "message": "Bu dilde ses yok"
-  },
-  "tts_rate_hint": {
-    "message": "🌐 çevrimiçi sesler hız ayarını desteklemiyor (tarayıcı kısıtlaması) — hız için 🌐 işaretsiz bir ses seç."
   },
   "date_today": {
     "message": "bugün"

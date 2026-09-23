@@ -224,6 +224,12 @@
   "fav_removed": {
     "message": "Removed from favorites"
   },
+  "section_translate": {
+    "message": "Translate"
+  },
+  "section_tts": {
+    "message": "Read Aloud"
+  },
   "translate_btn": {
     "message": "Translate"
   },
@@ -265,9 +271,6 @@
   },
   "tts_no_voice": {
     "message": "No voice for this language"
-  },
-  "tts_rate_hint": {
-    "message": "🌐 online voices don't support speed control (browser limitation) — pick a voice without 🌐 for speed."
   },
   "date_today": {
     "message": "today"
