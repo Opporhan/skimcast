@@ -74,8 +74,16 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 }
 .resurface-close:hover { background: rgba(0, 0, 0, .08); color: var(--text); }
 
+/* "Dosyalarım" / "Notlarım" — iki taraf, aynı anda sadece biri görünür (bkz. library.js render()). */
+.view-tabs { display: flex; gap: 6px; margin-bottom: 20px; background: var(--bg-subtle); border-radius: 12px; padding: 4px; }
+.tab-btn {
+  flex: 1; padding: 9px 0; border-radius: 9px; background: none; color: var(--text-muted);
+  font-size: 14px; font-weight: 600;
+}
+.tab-btn.active { background: var(--bg); color: var(--accent); box-shadow: 0 1px 3px rgba(0, 0, 0, .08); }
+
 .folders-section { margin-bottom: 20px; }
-.notes-section { margin-top: 28px; }
+.notes-section { margin-top: 0; }
 .folder-grid { display: flex; flex-wrap: wrap; gap: 10px; }
 .folder-card {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;

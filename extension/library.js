@@ -459,12 +459,17 @@ async function init() {
     <input id="search" class="search-input" type="text" placeholder="${escapeHtml(t("library_search_placeholder"))}">
     <div id="resurfaceCard"></div>
 
-    <section class="folders-section">
+    <div class="view-tabs">
+      <button id="filesTabBtn" class="tab-btn active">🗂️ ${t("files_tab")}</button>
+      <button id="notesTabBtn" class="tab-btn">📝 ${t("notes_tab")}</button>
+    </div>
+
+    <section class="folders-section" id="foldersSection">
       <h2>${t("folders_section_title")}</h2>
       <div id="folders" class="folder-grid"></div>
     </section>
 
-    <div class="controls-row">
+    <div class="controls-row" id="controlsRow">
       <select id="sortBy">
         <option value="newest">${t("sort_newest")}</option>
         <option value="oldest">${t("sort_oldest")}</option>
@@ -474,8 +479,7 @@ async function init() {
     </div>
     <div id="list"></div>
 
-    <section class="notes-section">
-      <h2>${t("notes_section_title")}</h2>
+    <section class="notes-section" id="notesSection" hidden>
       <div id="notesList"></div>
     </section>
 
@@ -501,7 +505,11 @@ async function init() {
 
   const listEl = document.getElementById("list");
   const notesListEl = document.getElementById("notesList");
-  const notesSectionEl = document.querySelector(".notes-section");
+  const notesSectionEl = document.getElementById("notesSection");
+  const foldersSectionEl = document.getElementById("foldersSection");
+  const controlsRowEl = document.getElementById("controlsRow");
+  const filesTabBtn = document.getElementById("filesTabBtn");
+  const notesTabBtn = document.getElementById("notesTabBtn");
   const foldersEl = document.getElementById("folders");
   const searchInput = document.getElementById("search");
   const sortSelect = document.getElementById("sortBy");
@@ -510,21 +518,33 @@ async function init() {
   let folders = await getFolders();
   let favView = false;
   let activeFolder = null; // null = Tümü
+  // "Dosyalarım" (klasörler+videolar) ile "Notlarım" arasında geçiş yapan üstteki iki sekme — kullanıcı
+  // notların video listesinin çok altında kalmasından ("notlar çok altta kalıyor") rahatsızdı; artık iki
+  // ayrı, birbirine karışmayan taraf: bir sekme aktifken diğerinin bölümü tamamen gizleniyor.
+  let viewMode = "files"; // "files" | "notes"
+
+  function setViewMode(mode) {
+    viewMode = mode;
+    filesTabBtn.classList.toggle("active", mode === "files");
+    notesTabBtn.classList.toggle("active", mode === "notes");
+    render();
+  }
+  filesTabBtn.addEventListener("click", () => setViewMode("files"));
+  notesTabBtn.addEventListener("click", () => setViewMode("notes"));
 
   // Bir klasörün "içeriği" hem o klasöre atanmış VİDEOLARDAN hem de o klasöre taşınmış FAVORİLERDEN
   // oluşuyor — ikisi ayrı sistemlerdi (video.folder / highlight.folder), bu yüzden bir favoriyi
   // klasöre taşımak "taşındı" diyordu ama o klasöre tıklayınca (sadece videoları gösteren renderList)
   // hiçbir şey görünmüyordu, sayaç da sadece videoları saydığı için 0 kalıyordu. Artık ikisi de aynı
   // sayımda ve aynı listede birleşiyor.
-  function countFor(name, allHighlights, allNotes) {
+  function countFor(name, allHighlights) {
     if (name === null) return index.length; // "Tümü" = video kütüphanesi
     const videoCount = index.filter((e) => e.folder === name).length;
     const favCount = allHighlights.filter((h) => (h.folder || NO_FOLDER) === name).length;
-    const noteCount = allNotes.filter((n) => (n.folder || NO_FOLDER) === name).length;
-    return videoCount + favCount + noteCount;
+    return videoCount + favCount;
   }
 
-  function renderFolderCards(allHighlights, allNotes) {
+  function renderFolderCards(allHighlights) {
     // Sabitlenen klasörler ("📌 Bu klasörü sabitle") en sık kullandıklarında her seferinde aramamak için
     // en başa geliyor — "Tümü" her zaman ilk sırada kalıyor.
     const sortedFolders = [...folders].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
@@ -535,7 +555,7 @@ async function init() {
         ${!f.system ? `<button class="folder-edit-btn" data-folder="${escapeHtml(f.name)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>` : ""}
         <span class="folder-icon">${iconHtml(f.icon)}</span>
         <span class="folder-name">${escapeHtml(f.label)}</span>
-        <span class="folder-count">${countFor(f.name, allHighlights, allNotes)}</span>
+        <span class="folder-count">${countFor(f.name, allHighlights)}</span>
       </div>`).join("") +
       `<button class="folder-card folder-card-add" id="newFolderBtn">
         <span class="folder-icon">＋</span>
@@ -556,12 +576,11 @@ async function init() {
     listEl.innerHTML = html || `<p class="hint">${t("library_empty")}</p>`;
   }
 
-  // "Notlarım" listesi: videolarla aynı mantık — "Tümü"de klasörlü olsun olmasın hepsi, belirli bir
-  // klasördeyken sadece o klasördekiler. Ayrı bir başlık/alan altında olduğu için video listesiyle
-  // karışmıyor ama klasör filtresini (üstteki "Dosyalarım" kartları) hâlâ birlikte kullanıyor.
+  // "Notlarım" sekmesi: "Dosyalarım"dan tamamen ayrı bir taraf — hangi not varsa hepsi burada, klasör
+  // filtresine bağlı değil (bir notun klasörü varsa satırında etiket olarak görünüyor, ama Notlarım
+  // sekmesi kendi başına her zaman TÜM notları listeliyor).
   function renderNotesList(allNotes) {
-    const filtered = activeFolder === null ? allNotes : allNotes.filter((n) => (n.folder || NO_FOLDER) === activeFolder);
-    notesListEl.innerHTML = filtered.length ? filtered.map(noteRowHtml).join("") : `<p class="hint">${t("no_notes")}</p>`;
+    notesListEl.innerHTML = allNotes.length ? allNotes.map(noteRowHtml).join("") : `<p class="hint">${t("no_notes")}</p>`;
   }
 
   async function renderSearch(query) {
@@ -627,16 +646,26 @@ async function init() {
   }
 
   async function render() {
+    // İki sekme birbirini tamamen dışlıyor: "Notlarım" açıkken "Dosyalarım" tarafının hiçbir parçası
+    // (klasörler, sırala/favori kontrolleri, video listesi) görünmüyor, tersi de öyle — notlar artık
+    // sayfanın en altına gömülü değil, tek tıkla kendi tarafına geçiliyor.
+    if (viewMode === "notes") {
+      foldersSectionEl.hidden = true;
+      controlsRowEl.hidden = true;
+      listEl.hidden = true;
+      notesSectionEl.hidden = false;
+      renderNotesList(await getNotes());
+      return;
+    }
+    foldersSectionEl.hidden = false;
+    controlsRowEl.hidden = false;
+    listEl.hidden = false;
+    notesSectionEl.hidden = true;
+
     const allHighlights = await getAllHighlights(index);
-    const allNotes = await getNotes();
-    renderFolderCards(allHighlights, allNotes);
-    const searching = !!searchInput.value.trim();
-    // "Notlarım" kendi başlığı altında ayrı duruyor; arama (kendi sonuç listesini gösteriyor) ve
-    // "Sadece Favoriler" görünümünde (tamamen farklı bir liste) karışıklık olmasın diye gizleniyor.
-    notesSectionEl.hidden = favView || searching;
-    if (!notesSectionEl.hidden) renderNotesList(allNotes);
+    renderFolderCards(allHighlights);
     if (favView) { renderFavoritesView(allHighlights); return; }
-    searching ? await renderSearch(searchInput.value) : renderList(allHighlights);
+    searchInput.value.trim() ? await renderSearch(searchInput.value) : renderList(allHighlights);
   }
 
   await render();

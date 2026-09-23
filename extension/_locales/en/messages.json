@@ -170,7 +170,10 @@
   "untitled_note": {
     "message": "(untitled note)"
   },
-  "notes_section_title": {
+  "files_tab": {
+    "message": "My Files"
+  },
+  "notes_tab": {
     "message": "My Notes"
   },
   "no_notes": {
