@@ -569,10 +569,24 @@ async function init() {
       });
     }
 
+    // macOS'un "eğlenceli" (novelty) sesleri — kasıtlı olarak tuhaf/hasta/robotik seslendirmek için
+    // tasarlanmış (ör. Albert resmi olarak "boğuk/hasta sesli" diye belgeleniyor). Bir transcript'i
+    // ciddi ciddi okumak için hiç uygun değiller, tamamen listeden çıkarıyoruz. (Araştırılıp doğrulandı.)
+    const NOVELTY_VOICE_NAMES = [
+      "Albert", "Bad News", "Bahh", "Bells", "Boing", "Bubbles", "Cellos", "Deranged",
+      "Good News", "Hysterical", "Pipe Organ", "Organ", "Trinoids", "Whisper", "Zarvox",
+      "Jester", "Junior", "Wobble", "Superstar", "Rocko", "Sandy", "Shelley",
+      "Eddy", "Flo", "Grandma", "Grandpa", "Fred", "Ralph",
+      // macOS, işletim sistemi dili Türkçeyse bu şaka sesleri Türkçe isimle geliyor:
+      "İyi Haber", "Kötü Haber", "Org",
+    ];
+    function isNoveltyVoice(v) {
+      return NOVELTY_VOICE_NAMES.some((n) => v.name === n || v.name.startsWith(n + " "));
+    }
+
     function voicesForLang(langCode) {
-      if (!langCode) return ttsVoices;
-      const base = langCode.split("-")[0].toLowerCase();
-      return ttsVoices.filter((v) => v.lang.toLowerCase().startsWith(base));
+      const base = langCode ? langCode.split("-")[0].toLowerCase() : null;
+      return ttsVoices.filter((v) => (!base || v.lang.toLowerCase().startsWith(base)) && !isNoveltyVoice(v));
     }
 
     // Kaliteli (nöral/"Natural") sesleri öne alıyoruz — tarayıcının kendi varsayılan sıralaması genelde
