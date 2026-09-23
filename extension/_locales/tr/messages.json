@@ -170,6 +170,12 @@
   "untitled_note": {
     "message": "(başlıksız not)"
   },
+  "notes_section_title": {
+    "message": "Notlarım"
+  },
+  "no_notes": {
+    "message": "Burada henüz not yok."
+  },
   "resurface_label": {
     "message": "💭 Bunu hatırlıyor musun?"
   },

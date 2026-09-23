@@ -474,6 +474,11 @@ async function init() {
     </div>
     <div id="list"></div>
 
+    <section class="notes-section">
+      <h2>${t("notes_section_title")}</h2>
+      <div id="notesList"></div>
+    </section>
+
     <footer class="backup-footer">
       <button id="backupBtn" class="link-btn">${t("backup_btn")}</button>
       <span class="dot">·</span>
@@ -495,6 +500,8 @@ async function init() {
   }
 
   const listEl = document.getElementById("list");
+  const notesListEl = document.getElementById("notesList");
+  const notesSectionEl = document.querySelector(".notes-section");
   const foldersEl = document.getElementById("folders");
   const searchInput = document.getElementById("search");
   const sortSelect = document.getElementById("sortBy");
@@ -536,16 +543,12 @@ async function init() {
       </button>`;
   }
 
-  // Belirli bir klasördeyken (Tümü değil) o klasördeki videoları, favorileri VE notları aynı listede
-  // gösterir — "klasöre taşı" gerçekten o klasörün normal içeriğine düşüyor, ayrı bir sekmede gizli
-  // kalmıyor. Notlar VİDEOLAR gibi davranıyor: "Tümü"de her zaman görünürler (klasörlü olsun olmasın),
-  // belirli bir klasördeyken sadece o klasördekiler — böylece klasör dışında da rahatça durabiliyorlar.
-  function renderList(allHighlights, allNotes) {
+  // "Dosyalarım" listesi: videolar + (belirli bir klasördeyken) o klasöre taşınmış favoriler. Notlar
+  // artık burada DEĞİL — kendi "Notlarım" başlığı altında, renderNotesList() ile ayrı gösteriliyor.
+  function renderList(allHighlights) {
     const filtered = activeFolder === null ? index : index.filter((e) => e.folder === activeFolder);
     const sorted = sortIndex(filtered, sortSelect.value);
     let html = sorted.map((e) => entryRowHtml(e, folders)).join("");
-    const notesFiltered = activeFolder === null ? allNotes : allNotes.filter((n) => (n.folder || NO_FOLDER) === activeFolder);
-    html += notesFiltered.map(noteRowHtml).join("");
     if (activeFolder !== null) {
       const favsHere = allHighlights.filter((h) => (h.folder || NO_FOLDER) === activeFolder);
       html += favsHere.map(highlightRowHtml).join("");
@@ -553,9 +556,17 @@ async function init() {
     listEl.innerHTML = html || `<p class="hint">${t("library_empty")}</p>`;
   }
 
+  // "Notlarım" listesi: videolarla aynı mantık — "Tümü"de klasörlü olsun olmasın hepsi, belirli bir
+  // klasördeyken sadece o klasördekiler. Ayrı bir başlık/alan altında olduğu için video listesiyle
+  // karışmıyor ama klasör filtresini (üstteki "Dosyalarım" kartları) hâlâ birlikte kullanıyor.
+  function renderNotesList(allNotes) {
+    const filtered = activeFolder === null ? allNotes : allNotes.filter((n) => (n.folder || NO_FOLDER) === activeFolder);
+    notesListEl.innerHTML = filtered.length ? filtered.map(noteRowHtml).join("") : `<p class="hint">${t("no_notes")}</p>`;
+  }
+
   async function renderSearch(query) {
     const results = await searchArchive(query, index);
-    if (results === null) { renderList(await getAllHighlights(index), await getNotes()); return; }
+    if (results === null) { renderList(await getAllHighlights(index)); return; }
     listEl.innerHTML = results.length
       ? results.map((r) => `
           <div class="row">
@@ -619,8 +630,13 @@ async function init() {
     const allHighlights = await getAllHighlights(index);
     const allNotes = await getNotes();
     renderFolderCards(allHighlights, allNotes);
+    const searching = !!searchInput.value.trim();
+    // "Notlarım" kendi başlığı altında ayrı duruyor; arama (kendi sonuç listesini gösteriyor) ve
+    // "Sadece Favoriler" görünümünde (tamamen farklı bir liste) karışıklık olmasın diye gizleniyor.
+    notesSectionEl.hidden = favView || searching;
+    if (!notesSectionEl.hidden) renderNotesList(allNotes);
     if (favView) { renderFavoritesView(allHighlights); return; }
-    searchInput.value.trim() ? await renderSearch(searchInput.value) : renderList(allHighlights, allNotes);
+    searching ? await renderSearch(searchInput.value) : renderList(allHighlights);
   }
 
   await render();
@@ -801,8 +817,12 @@ async function init() {
       await updateHighlight(moveFav.dataset.videoId, moveFav.dataset.key, { folder: result.folder });
       showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
       render();
-      return;
     }
+  });
+
+  // "Notlarım" kendi listesinde (#notesList), video listesinden (#list) ayrı — bu yüzden düzenle/taşı
+  // düğmeleri de kendi dinleyicisinde.
+  notesListEl.addEventListener("click", async (e) => {
     const editNote = e.target.closest(".edit-note");
     if (editNote) {
       const notes = await getNotes();

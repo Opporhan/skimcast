@@ -170,6 +170,12 @@
   "untitled_note": {
     "message": "(untitled note)"
   },
+  "notes_section_title": {
+    "message": "My Notes"
+  },
+  "no_notes": {
+    "message": "No notes here yet."
+  },
   "resurface_label": {
     "message": "💭 Remember this?"
   },
