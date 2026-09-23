@@ -266,6 +266,9 @@
   "tts_no_voice": {
     "message": "Bu dilde ses yok"
   },
+  "tts_rate_hint": {
+    "message": "🌐 çevrimiçi sesler hız ayarını desteklemiyor (tarayıcı kısıtlaması) — hız için 🌐 işaretsiz bir ses seç."
+  },
   "date_today": {
     "message": "bugün"
   },

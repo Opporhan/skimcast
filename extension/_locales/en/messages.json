@@ -266,6 +266,9 @@
   "tts_no_voice": {
     "message": "No voice for this language"
   },
+  "tts_rate_hint": {
+    "message": "🌐 online voices don't support speed control (browser limitation) — pick a voice without 🌐 for speed."
+  },
   "date_today": {
     "message": "today"
   },
