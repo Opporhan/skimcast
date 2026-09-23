@@ -218,7 +218,10 @@ async function getAllHighlights(index) {
   const all = [];
   for (const meta of index) {
     const entry = entries[archiveKey(meta.id)];
-    for (const h of entry?.highlights || []) all.push({ ...h, videoId: meta.id, videoTitle: entry.meta.title });
+    // h.url: zaman damgasına atlayan link (jumpUrl'ün viewer.js'de kullandığı meta.linkPrefix + saniye
+    // kalıbıyla aynı) — daha önce hiç set edilmiyordu, bu yüzden dışa aktarılan Markdown'daki "aç"
+    // bağlantısı hep sessizce boş kalıyordu (h.url her zaman undefined'dı).
+    for (const h of entry?.highlights || []) all.push({ ...h, videoId: meta.id, videoTitle: entry.meta.title, url: entry.meta?.linkPrefix });
   }
   return all.sort((a, b) => b.ts - a.ts);
 }
