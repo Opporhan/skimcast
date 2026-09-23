@@ -3,8 +3,12 @@
 // adlandırma, silme), sabitleme, sıralama ve tüm videolardaki favori (yıldızlanmış) anların tek bir
 // yerde toplandığı "Favoriler" görünümü.
 
+// Tırnak işaretlerini de kaçırıyor (önceki sürüm kaçırmıyordu) — video başlığı, favori metni, klasör
+// adı gibi kullanıcı içeriği bir HTML özniteliğinin (data-id="...", title="..." gibi) içine konduğunda,
+// metinde bir " geçerse önceki haliyle özniteliği erken kapatıp sayfayı bozabilirdi.
 function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function fmtTime(sec) {

@@ -71,6 +71,29 @@ Prints the transcript as `[mm:ss] text` blocks (long ones are split into part fi
 
 Several Claude Code skills already do "link → summary" ([audio-tldr-skill](https://github.com/AugustusW/audio-tldr-skill), [claude-video](https://github.com/bradautomates/claude-video), [youtube-transcriber](https://github.com/lifesized/youtube-transcriber) and others). skimcast's angle is to be **one small, dependable path for every kind of link** — including podcasts with ready transcripts and Apple Podcasts links — with a private auto-setup, clear failure messages, and summaries that always carry timestamps and say how trustworthy the source text is.
 
+## Browser extension
+
+`extension/` is a separate, self-contained product in this repo: a Chrome/Edge extension that turns any YouTube video, podcast episode, or article into a searchable, click-to-jump transcript — no summary, no LLM, no API key, nothing leaves your browser.
+
+```
+Right-click a video (or paste a link in the popup) → transcript opens in a new tab
+```
+
+- **Read & navigate** — search inside the transcript, click any timestamp to jump the video to that second, toggle timestamps on/off, switch light/dark theme.
+- **Personal library** — every transcript you fetch is saved locally; organize them into folders (with your own icon or uploaded image), star favorite lines, search across everything you've ever fetched.
+- **Translate on-device** — Chrome's built-in Translator API translates the transcript into any of 9 languages, fully offline, no quota.
+- **Export** — copy, download as `.txt` or a real `.pdf` (Turkish/accented characters render correctly via an embedded font), or export a folder as Markdown for Obsidian/Notion.
+- **Back up** — one file holds your whole library (folders, favorites, videos); restore it on another machine.
+- **UI language** — switch the extension's own interface between Turkish and English, independent of your browser's language.
+
+### Install (unpacked, not on a store)
+
+1. Register the native helper (one-time, lets the extension read YouTube captions without hitting YouTube's bot detection): `python3 extension/install_native_host.py`
+2. Open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**, click **Load unpacked**, select the `extension/` folder.
+3. Click the toolbar icon on any YouTube/podcast/article page, or right-click the page and choose **skimcast: Get Transcript**.
+
+This is a separate codebase from the Claude Code plugin above — the extension never calls Claude or any LLM; the plugin never touches the browser.
+
 ## Develop
 
 ```

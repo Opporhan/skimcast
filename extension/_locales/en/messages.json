@@ -248,6 +248,18 @@
   "translate_no_source": {
     "message": "Couldn't detect the source language; translation isn't available."
   },
+  "tts_btn": {
+    "message": "Read Aloud"
+  },
+  "tts_pause_btn": {
+    "message": "Pause"
+  },
+  "tts_resume_btn": {
+    "message": "Resume"
+  },
+  "tts_stop_btn": {
+    "message": "Stop"
+  },
   "date_today": {
     "message": "today"
   },

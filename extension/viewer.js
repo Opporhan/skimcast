@@ -2,8 +2,12 @@
 // zaman damgalı transcript'i arama, tıkla-git, olası reklam tespiti, favori/alıntı, kopyala/indir ve
 // (cihaz üzerinde, ücretsiz/kotasız) çeviri katmanlarıyla sunar. Çeviri hariç hiçbir dış API'ye gitmez.
 
+// Tırnak işaretlerini de kaçırıyor (önceki sürüm kaçırmıyordu) — video başlığı, favori metni gibi
+// kullanıcı içeriği bir HTML özniteliğinin (data-id="...", title="..." gibi) içine konduğunda, metinde
+// bir " geçerse önceki haliyle özniteliği erken kapatıp sayfayı bozabilirdi.
 function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
 function fmtTime(sec) {
@@ -104,6 +108,7 @@ async function init() {
   const lastSec = [...blocks].reverse().find((b) => b.sec != null)?.sec;
   const metaLine = meta.duration || (lastSec != null ? fmtTime(lastSec) : "");
   const canTranslate = typeof Translator !== "undefined";
+  const canSpeak = typeof speechSynthesis !== "undefined";
 
   app.innerHTML = `
     <header>
@@ -133,6 +138,18 @@ async function init() {
       <button id="translateBtn">${t("translate_btn")}</button>
       <button id="originalBtn" hidden>${t("translate_original_btn")}</button>
       <span id="translateStatus" class="hint" hidden></span>
+    </div>` : ""}
+    ${canSpeak ? `
+    <div class="translate-bar">
+      <button id="ttsBtn">🔊 ${t("tts_btn")}</button>
+      <select id="ttsRate">
+        <option value="1">1x</option>
+        <option value="1.25">1.25x</option>
+        <option value="1.5" selected>1.5x</option>
+        <option value="2">2x</option>
+        <option value="2.5">2.5x</option>
+      </select>
+      <button id="ttsStopBtn" hidden>⏹ ${t("tts_stop_btn")}</button>
     </div>` : ""}
     <p id="noMatches" class="hint" hidden>${t("no_matches")}</p>
     <div class="content" id="content"></div>
@@ -517,6 +534,59 @@ async function init() {
     await assignFolder(result.folder);
     showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
   });
+
+  // ------------------------------------------------------------ sesli okuma (cihaz üzerinde, Web Speech API)
+  // Videoyu hiç açmadan, sadece dinleyerek "tüketmek" için — ekrandaki hangi metin görünüyorsa (orijinal
+  // ya da çevrilmiş) onu okuyor. Tamamen tarayıcı içinde, API anahtarı/ağ isteği yok.
+  if (canSpeak) {
+    const ttsBtn = document.getElementById("ttsBtn");
+    const ttsRateSelect = document.getElementById("ttsRate");
+    const ttsStopBtn = document.getElementById("ttsStopBtn");
+    let ttsState = "idle"; // idle | playing | paused
+
+    function ttsUpdateBtn() {
+      ttsBtn.textContent = ttsState === "playing" ? `⏸ ${t("tts_pause_btn")}`
+        : ttsState === "paused" ? `▶ ${t("tts_resume_btn")}` : `🔊 ${t("tts_btn")}`;
+      ttsStopBtn.hidden = ttsState === "idle";
+    }
+
+    function ttsSpeakFrom(index) {
+      if (index >= blocks.length) { ttsStop(); return; }
+      const text = state.texts[index];
+      if (!text.trim()) { ttsSpeakFrom(index + 1); return; } // boş satırı atla
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.rate = parseFloat(ttsRateSelect.value);
+      if (state.lang) utter.lang = state.lang; // çevrilmişse hedef dile göre doğru telaffuz
+      utter.onend = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
+      utter.onerror = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
+      rows.forEach((r) => r.classList.remove("reading"));
+      rows[index].classList.add("reading");
+      rows[index].scrollIntoView({ behavior: "smooth", block: "center" });
+      speechSynthesis.speak(utter);
+    }
+
+    function ttsStop() {
+      ttsState = "idle"; // onend/onerror'ın devam etmemesi için cancel()'dan ÖNCE ayarlanıyor
+      speechSynthesis.cancel();
+      rows.forEach((r) => r.classList.remove("reading"));
+      ttsUpdateBtn();
+    }
+
+    ttsBtn.addEventListener("click", () => {
+      if (ttsState === "idle") {
+        ttsState = "playing";
+        ttsSpeakFrom(0);
+      } else if (ttsState === "playing") {
+        speechSynthesis.pause();
+        ttsState = "paused";
+      } else {
+        speechSynthesis.resume();
+        ttsState = "playing";
+      }
+      ttsUpdateBtn();
+    });
+    ttsStopBtn.addEventListener("click", ttsStop);
+  }
 
   // ------------------------------------------------------------ çeviri (cihaz üzerinde)
   if (!canTranslate) return;

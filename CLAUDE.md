@@ -1,6 +1,10 @@
 # skimcast — proje notları
 
-Claude Code plugin'i: link → transcript → zaman damgalı özet. Kod bilinçli olarak **küçük** tutulur.
+Bu depoda iki AYRI ürün var, ortak kodları yok:
+
+## 1) Claude Code plugin'i (`skills/summarize/`)
+
+link → transcript → zaman damgalı özet. Kod bilinçli olarak **küçük** tutulur.
 
 - `skills/summarize/transcript.py`: tek dosya, transcript aracı. Basamaklı yedek zinciri (YouTube altyazı → podcast etiketi →
   yt-dlp altyazı → web sayfası → whisper). Eksik paketi özel venv'e (`~/.cache/skimcast/venv`) kendisi kurar.
@@ -10,3 +14,21 @@ Claude Code plugin'i: link → transcript → zaman damgalı özet. Kod bilinçl
 - Ağ/yt-dlp/whisper testlerde mock'lanır; gerçek denemeler elle yapılır.
 - Kapsamı büyütme: önbellek/devam altyapısı, doğrulayıcı, RSS izleme gibi şeyler bilinçli olarak dışarıda bırakıldı.
 - Podcast `<podcast:transcript>` etiketi yerel adla aranır (feed'ler ad alanını farklı adreslerle tanımlıyor).
+
+## 2) Tarayıcı uzantısı (`extension/`)
+
+Chrome/Edge uzantısı: link → aranabilir, tıkla-git yapılabilir transcript görüntüleyici + kişisel arşiv.
+**Özetleme YOK** — bir gece süren Groq (ücretsiz LLM) kota/güvenilirlik sorunlarından sonra bilinçli olarak
+terk edildi (bkz. git geçmişi); bunun yerine sağlam çalışan transcript-çekme parçası üzerine inşa edildi.
+
+- `background.js`: transcript çekme (YouTube için `skills/summarize/native_host.py`'ye native messaging;
+  podcast RSS/Apple/web sayfası doğrudan JS fetch ile), arşive kaydetme, sağ tık menüsü.
+- `viewer.js`: transcript'i gösterir — arama, tıkla-git, olası reklam tespiti, favori (yıldız + klasöre
+  taşıma), cihaz üzerinde çeviri (`Translator`/`LanguageDetector` API, ücretsiz, API anahtarsız), TXT/PDF
+  indirme (PDF: `vendor/jspdf.umd.min.js` + Türkçe karakterler için gömülü font).
+- `library.js`: kütüphane — klasörler (özel ikon/görsel, not, sabitleme), arama, favoriler, yedekleme/geri
+  yükleme, Markdown dışa aktarma.
+- `theme.js` / `lang.js`: paylaşılan tema (açık/koyu) ve arayüz dili (TR/EN, tarayıcı dilinden bağımsız).
+- Testler: `extension/test.mjs` (saf mantık fonksiyonları) — `node extension/test.mjs`.
+- İki ürün arasında kod paylaşımı yok; `skills/summarize/native_host.py` sadece extension'ın YouTube
+  transcript kaynağı olarak kullanılıyor, Claude'a hiç istek atmıyor.

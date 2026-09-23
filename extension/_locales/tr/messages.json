@@ -248,6 +248,18 @@
   "translate_no_source": {
     "message": "Kaynak dil tespit edilemedi, çeviri kullanılamıyor."
   },
+  "tts_btn": {
+    "message": "Sesli Oku"
+  },
+  "tts_pause_btn": {
+    "message": "Duraklat"
+  },
+  "tts_resume_btn": {
+    "message": "Devam Et"
+  },
+  "tts_stop_btn": {
+    "message": "Durdur"
+  },
   "date_today": {
     "message": "bugün"
   },

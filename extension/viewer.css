@@ -143,6 +143,9 @@ button:hover { filter: brightness(.96); }
 }
 .block .star-folder-btn:hover { color: var(--accent); background: var(--accent-soft); border-radius: 8px; }
 
+/* Sesli okuma sırasında o an okunan satır */
+.block.reading { background: var(--accent-soft); }
+
 .toast {
   position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(8px);
   background: var(--text); color: var(--bg); padding: 10px 20px; border-radius: 22px; font-size: 13px;
