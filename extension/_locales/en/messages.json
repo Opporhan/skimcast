@@ -152,9 +152,6 @@
   "fav_view_btn": {
     "message": "Favorites"
   },
-  "new_note_hint": {
-    "message": "New note (not tied to any video — file it in a folder or leave it loose)"
-  },
   "new_note_title": {
     "message": "New Note"
   },
@@ -250,6 +247,12 @@
   },
   "video_note_placeholder": {
     "message": "Write a note about this video… (saved automatically)"
+  },
+  "move_note_to_notes_btn": {
+    "message": "Move to My Notes"
+  },
+  "moved_to_notes_toast": {
+    "message": "Moved to My Notes."
   },
   "move_to_folder_title": {
     "message": "Move to Folder"

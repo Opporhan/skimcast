@@ -86,6 +86,8 @@ h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em;
   background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 13px; resize: vertical;
 }
 .video-note:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.move-note-btn { margin-top: 6px; font-size: 12px; color: var(--text-muted); background: none; padding: 4px 0; }
+.move-note-btn:hover { color: var(--accent); }
 .toolbar-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
 .toolbar-label {
   font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;

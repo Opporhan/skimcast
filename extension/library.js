@@ -388,12 +388,14 @@ function newNoteId() {
 function noteRowHtml(n) {
   const folderTag = n.folder ? `<span class="mini-tag">${escapeHtml(n.folder)}</span>` : "";
   const preview = n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body;
+  // Bir video notundan "Notlarıma Taşı" ile gelmişse, kaynağa geri dönebilesin diye bir bağlantı kalıyor.
+  const sourceLink = n.sourceUrl ? `<a class="note-source" href="${escapeHtml(n.sourceUrl)}" target="_blank">🎬 ${escapeHtml(n.sourceTitle || n.sourceUrl)}</a>` : "";
   return `
     <div class="row note-row">
       <div class="row-main">
         <div class="title note-title">📝 ${escapeHtml(n.title || t("untitled_note"))}</div>
         <div class="snippet">${escapeHtml(preview)} ${folderTag}</div>
-        <div class="row-meta">${relativeDate(n.ts)}</div>
+        <div class="row-meta">${relativeDate(n.ts)} ${sourceLink}</div>
       </div>
       <div class="row-actions">
         <button class="move-note" data-note-id="${escapeHtml(n.id)}" title="${escapeHtml(t("move_to_folder_title"))}">📁</button>
@@ -451,7 +453,6 @@ async function init() {
         <h1>${t("library_title")}</h1>
       </div>
       <div class="header-btns">
-        <button id="newNoteBtn" class="theme-btn" title="${escapeHtml(t("new_note_hint"))}">📝</button>
         <button id="langBtn" class="theme-btn" title="Language"></button>
         <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
       </div>
@@ -480,6 +481,12 @@ async function init() {
     <div id="list"></div>
 
     <section class="notes-section" id="notesSection" hidden>
+      <div class="folder-grid">
+        <button class="folder-card folder-card-add" id="newNoteBtn">
+          <span class="folder-icon">＋</span>
+          <span class="folder-name">${t("new_note_title")}</span>
+        </button>
+      </div>
       <div id="notesList"></div>
     </section>
 

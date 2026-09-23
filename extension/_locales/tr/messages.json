@@ -152,9 +152,6 @@
   "fav_view_btn": {
     "message": "Favoriler"
   },
-  "new_note_hint": {
-    "message": "Yeni not (herhangi bir videoya bağlı değil — bir klasöre koy ya da öylece bırak)"
-  },
   "new_note_title": {
     "message": "Yeni Not"
   },
@@ -250,6 +247,12 @@
   },
   "video_note_placeholder": {
     "message": "Bu video hakkında not al… (otomatik kaydedilir)"
+  },
+  "move_note_to_notes_btn": {
+    "message": "Notlarıma Taşı"
+  },
+  "moved_to_notes_toast": {
+    "message": "Notlarıma taşındı."
   },
   "move_to_folder_title": {
     "message": "Dosyaya Taşı"

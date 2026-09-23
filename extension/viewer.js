@@ -192,6 +192,7 @@ async function init() {
     </div>
     <div id="videoNoteBox" class="video-note-box" hidden>
       <textarea id="videoNoteText" class="video-note" placeholder="${escapeHtml(t("video_note_placeholder"))}">${escapeHtml(entry.videoNote || "")}</textarea>
+      <button id="moveNoteBtn" class="move-note-btn">📤 ${t("move_note_to_notes_btn")}</button>
     </div>
     ${canTranslate ? `
     <div class="toolbar-section">
@@ -268,6 +269,32 @@ async function init() {
       noteBtn.classList.toggle("active", !!entry.videoNote);
       await persistHighlights();
     }, 500);
+  });
+
+  // Bu videoya özel notu, kütüphanedeki genel "Notlarım" listesine gerçek, bağımsız bir not olarak
+  // TAŞIR (kopyalamaz) — video notu boşalır, aynı içerik artık Notlarım'da (bu videoya bağlı kalmadan,
+  // istersen bir klasöre de koyabilirsin). Kaynağı unutmayalım diye notun üzerinde videoya geri dönen
+  // bir bağlantı da kalıyor (sourceUrl/sourceTitle).
+  document.getElementById("moveNoteBtn").addEventListener("click", async () => {
+    const text = videoNoteText.value.trim();
+    if (!text) return;
+    const NOTES_KEY = "skimcastNotes";
+    const { [NOTES_KEY]: notes = [] } = await chrome.storage.local.get(NOTES_KEY);
+    notes.unshift({
+      id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+      title: meta.title || "",
+      body: text,
+      folder: "",
+      ts: Date.now(),
+      sourceUrl: entry.url,
+      sourceTitle: meta.title || "",
+    });
+    await chrome.storage.local.set({ [NOTES_KEY]: notes });
+    entry.videoNote = "";
+    videoNoteText.value = "";
+    noteBtn.classList.remove("active");
+    await persistHighlights();
+    showToast(t("moved_to_notes_toast"));
   });
 
   async function toggleHighlight(i, starBtn) {
