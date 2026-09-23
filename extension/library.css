@@ -33,6 +33,7 @@ body {
   font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .theme-btn:hover { filter: brightness(.95); }
+.theme-btn.active { background: var(--accent-soft); color: var(--accent); }
 #langBtn {
   border: none; border-radius: 16px; width: auto; height: 32px; padding: 0 12px; background: var(--bg-subtle);
   color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer;
@@ -48,6 +49,13 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
   background: var(--bg-subtle); color: var(--text); margin-bottom: 20px;
 }
 .search-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+.video-note-box { margin: 0 0 16px; }
+.video-note {
+  width: 100%; min-height: 80px; padding: 11px 14px; border: none; border-radius: 12px;
+  background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 14px; resize: vertical;
+}
+.video-note:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* "Bunu hatırlıyor musun?" — eski bir favoriyi günlük olarak hatırlatan kart, boşken hiçbir yer kaplamaz. */
 .resurface-card {

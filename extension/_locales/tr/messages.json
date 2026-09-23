@@ -152,6 +152,12 @@
   "fav_view_btn": {
     "message": "Favoriler"
   },
+  "general_note_hint": {
+    "message": "Notlarım (herhangi bir videoya bağlı olmayan serbest not alanı)"
+  },
+  "general_note_placeholder": {
+    "message": "Aklına ne gelirse yaz… (otomatik kaydedilir)"
+  },
   "resurface_label": {
     "message": "💭 Bunu hatırlıyor musun?"
   },
@@ -211,6 +217,15 @@
   },
   "sync_hint": {
     "message": "YouTube sekmesinde videoyu izlerken transcript'i takip eder — o an konuşulan satırı vurgulayıp oraya kaydırır. YouTube sekmesini açık tut."
+  },
+  "video_note_btn": {
+    "message": "Not"
+  },
+  "video_note_hint": {
+    "message": "Bu videonun tamamıyla ilgili genel bir kişisel not (tek bir satıra bağlı değil)"
+  },
+  "video_note_placeholder": {
+    "message": "Bu video hakkında not al… (otomatik kaydedilir)"
   },
   "move_to_folder_title": {
     "message": "Dosyaya Taşı"

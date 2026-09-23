@@ -80,6 +80,12 @@ h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em;
 .action-row button:hover { background: var(--bg-subtle); color: var(--text); }
 .action-row .toggle-btn.active { background: var(--accent-soft); color: var(--accent); }
 .toolbar-divider { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
+.video-note-box { margin: 4px 0 10px; }
+.video-note {
+  width: 100%; min-height: 70px; padding: 10px 12px; border: none; border-radius: 10px;
+  background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 13px; resize: vertical;
+}
+.video-note:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 .toolbar-section { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--border); }
 .toolbar-label {
   font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
@@ -168,6 +174,8 @@ button:hover { filter: brightness(.96); }
    ince bir vurgu çizgisiyle ayırt ediliyor, ikisi aynı anda tetiklenmez ama görsel dilde tutarlı kalsın). */
 .block.reading { background: var(--accent-soft); }
 .block.synced { background: var(--accent-soft); border-left: 3px solid var(--accent); padding-left: 5px; }
+/* O an okunan/izlenen TEK kelime — sabit sarı, iki temada da okunur kalsın diye koyu metinle. */
+.word.word-active { background: #ffd60a; color: #1d1d1f; border-radius: 3px; padding: 0 1px; }
 .block .tts-play-from {
   flex-shrink: 0; font-size: 12px; padding: 3px 7px; line-height: 1; background: none;
   color: var(--text-muted); cursor: pointer;

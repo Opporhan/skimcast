@@ -152,6 +152,12 @@
   "fav_view_btn": {
     "message": "Favorites"
   },
+  "general_note_hint": {
+    "message": "My notes (a free scratchpad, not tied to any video)"
+  },
+  "general_note_placeholder": {
+    "message": "Jot down anything… (saved automatically)"
+  },
   "resurface_label": {
     "message": "💭 Remember this?"
   },
@@ -211,6 +217,15 @@
   },
   "sync_hint": {
     "message": "Follows along while you watch the video in its YouTube tab — highlights and scrolls to the line being spoken. Keep the YouTube tab open."
+  },
+  "video_note_btn": {
+    "message": "Note"
+  },
+  "video_note_hint": {
+    "message": "A general personal note about this whole video (not tied to one line)"
+  },
+  "video_note_placeholder": {
+    "message": "Write a note about this video… (saved automatically)"
   },
   "move_to_folder_title": {
     "message": "Move to Folder"

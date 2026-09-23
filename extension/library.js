@@ -365,6 +365,33 @@ async function renderResurfaceCard(allHighlights) {
   });
 }
 
+// ------------------------------------------------------------ genel kişisel not defteri
+// Belirli bir videoyla ilgili değil — kütüphanenin kendisine ait, serbest bir not alanı (anlık fikirler,
+// yapılacaklar, vb.). Tek bir depolama anahtarında (skimcastGeneralNote) duruyor, tüm arşivden bağımsız.
+const GENERAL_NOTE_KEY = "skimcastGeneralNote";
+
+async function initGeneralNote() {
+  const notesBtn = document.getElementById("notesBtn");
+  const box = document.getElementById("generalNoteBox");
+  const textarea = document.getElementById("generalNoteText");
+  const { [GENERAL_NOTE_KEY]: saved = "" } = await chrome.storage.local.get(GENERAL_NOTE_KEY);
+  textarea.value = saved;
+  notesBtn.classList.toggle("active", !!saved);
+  notesBtn.addEventListener("click", () => {
+    box.hidden = !box.hidden;
+    if (!box.hidden) textarea.focus();
+  });
+  let saveTimer = null;
+  textarea.addEventListener("input", () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async () => {
+      const value = textarea.value.trim();
+      await chrome.storage.local.set({ [GENERAL_NOTE_KEY]: value });
+      notesBtn.classList.toggle("active", !!value);
+    }, 500);
+  });
+}
+
 async function init() {
   await initLang();
   const app = document.getElementById("app");
@@ -375,10 +402,14 @@ async function init() {
         <h1>${t("library_title")}</h1>
       </div>
       <div class="header-btns">
+        <button id="notesBtn" class="theme-btn" title="${escapeHtml(t("general_note_hint"))}">📝</button>
         <button id="langBtn" class="theme-btn" title="Language"></button>
         <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
       </div>
     </header>
+    <div id="generalNoteBox" class="video-note-box" hidden>
+      <textarea id="generalNoteText" class="video-note" placeholder="${escapeHtml(t("general_note_placeholder"))}"></textarea>
+    </div>
     <input id="search" class="search-input" type="text" placeholder="${escapeHtml(t("library_search_placeholder"))}">
     <div id="resurfaceCard"></div>
 
@@ -407,6 +438,7 @@ async function init() {
   `;
   mountThemeButton(document.getElementById("themeBtn"));
   mountLangButton(document.getElementById("langBtn"));
+  await initGeneralNote();
 
   const toastEl = document.getElementById("toast");
   let toastTimer = null;

@@ -41,6 +41,53 @@ function openInTab(url) {
   chrome.tabs.create({ url, active: true });
 }
 
+// ------------------------------------------------------------ kelime kelime takip (sesli okuma + videoyla senkron)
+// Bir satırın metnini tek tek kelimelere sarıp (span.word) o an "sırada" olan kelimeyi sarıyla vurgulamak
+// için. Bu yapı SADECE o an aktif olan satırda geçici olarak kuruluyor — kalıcı olsaydı arama vurgusu
+// (applyFilters, <mark> ile innerHTML'i değiştiriyor) ve çeviri (applyTexts, textContent'i değiştiriyor)
+// ile çakışırdı. Satır aktif olmaktan çıkınca deactivateWordTracking düz metne geri döndürüyor.
+function wordsHtml(text) {
+  let wi = 0;
+  return text.split(/(\s+)/).map((tok) => {
+    if (!tok || /^\s+$/.test(tok)) return tok;
+    return `<span class="word" data-widx="${wi++}">${escapeHtml(tok)}</span>`;
+  }).join("");
+}
+
+function activateWordTracking(row, text) {
+  const textSpan = row?.querySelector(".text");
+  if (textSpan) textSpan.innerHTML = wordsHtml(text);
+}
+
+function deactivateWordTracking(row) {
+  const textSpan = row?.querySelector(".text");
+  if (textSpan && textSpan.querySelector(".word")) textSpan.textContent = textSpan.textContent;
+}
+
+function highlightWord(row, idx) {
+  if (!row) return;
+  const prev = row.querySelector(".word.word-active");
+  if (prev) prev.classList.remove("word-active");
+  if (idx == null || idx < 0) return;
+  row.querySelectorAll(".word")[idx]?.classList.add("word-active");
+}
+
+// SpeechSynthesisUtterance'ın "boundary" olayı charIndex veriyor (metindeki karakter konumu) — hangi
+// kelimeye denk geldiğini bulmak için kendi kelime bölmemizle (wordsHtml ile aynı mantık) eşliyoruz.
+function wordIndexAtChar(text, charIndex) {
+  if (charIndex == null) return -1;
+  const tokens = text.split(/(\s+)/);
+  let pos = 0, wi = 0;
+  for (const tok of tokens) {
+    if (!tok) continue;
+    if (/^\s+$/.test(tok)) { pos += tok.length; continue; }
+    if (charIndex < pos + tok.length) return wi;
+    pos += tok.length;
+    wi++;
+  }
+  return Math.max(wi - 1, 0);
+}
+
 // Butona art arda hızlı basılırsa (1.5sn içinde), önceki sürüm "orijinal" metni o an ekranda duran
 // (zaten değiştirilmiş, ör. "✓ Kopyalandı") metinden okuyordu — bu yüzden buton kalıcı olarak takılı
 // kalabiliyordu. Artık gerçek orijinal metni bir kere, elemente kendi verisi olarak saklıyoruz.
@@ -137,10 +184,14 @@ async function init() {
       <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_only_btn")}</button>
       <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
       <button id="moveBtn">${t("move_to_folder_btn")}</button>
+      <button id="noteBtn" class="toggle-btn${entry.videoNote ? " active" : ""}" title="${escapeHtml(t("video_note_hint"))}">📝 ${t("video_note_btn")}</button>
       ${ytVideoId ? `<button id="syncBtn" class="toggle-btn" title="${escapeHtml(t("sync_hint"))}">🔗 ${t("sync_btn")}</button>` : ""}
       <span class="toolbar-divider"></span>
       <button id="copyBtn">${t("copy_btn")}</button>
       <button id="downloadBtn">${t("download_btn")}</button>
+    </div>
+    <div id="videoNoteBox" class="video-note-box" hidden>
+      <textarea id="videoNoteText" class="video-note" placeholder="${escapeHtml(t("video_note_placeholder"))}">${escapeHtml(entry.videoNote || "")}</textarea>
     </div>
     ${canTranslate ? `
     <div class="toolbar-section">
@@ -198,6 +249,26 @@ async function init() {
   async function persistHighlights() {
     await chrome.storage.local.set({ [key]: entry });
   }
+
+  // Bu videoya/bölüme dair genel bir not — tek bir favori/satırla değil, videonun tamamıyla ilgili
+  // ("özet", "sonra tekrar bak" gibi kişisel notlar). Tek satırlık favori notlarından ayrı: entry
+  // üzerinde (highlights değil) saklanıyor. Yazarken her tuşta kaydetmemek için kısa bir debounce var.
+  const noteBtn = document.getElementById("noteBtn");
+  const videoNoteBox = document.getElementById("videoNoteBox");
+  const videoNoteText = document.getElementById("videoNoteText");
+  noteBtn.addEventListener("click", () => {
+    videoNoteBox.hidden = !videoNoteBox.hidden;
+    if (!videoNoteBox.hidden) videoNoteText.focus();
+  });
+  let noteSaveTimer = null;
+  videoNoteText.addEventListener("input", () => {
+    clearTimeout(noteSaveTimer);
+    noteSaveTimer = setTimeout(async () => {
+      entry.videoNote = videoNoteText.value.trim();
+      noteBtn.classList.toggle("active", !!entry.videoNote);
+      await persistHighlights();
+    }, 500);
+  });
 
   async function toggleHighlight(i, starBtn) {
     const hKey = highlightKey(i);
@@ -369,7 +440,10 @@ async function init() {
     let lastSyncIdx = -1;
 
     function clearSyncHighlight() {
-      if (lastSyncIdx !== -1 && rows[lastSyncIdx]) rows[lastSyncIdx].classList.remove("synced");
+      if (lastSyncIdx !== -1 && rows[lastSyncIdx]) {
+        rows[lastSyncIdx].classList.remove("synced");
+        deactivateWordTracking(rows[lastSyncIdx]);
+      }
       lastSyncIdx = -1;
     }
 
@@ -379,11 +453,27 @@ async function init() {
       for (let i = 0; i < blocks.length; i++) {
         if (blocks[i].sec != null && blocks[i].sec <= currentTime) idx = i; else break;
       }
-      if (idx === -1 || idx === lastSyncIdx) return;
-      clearSyncHighlight();
-      lastSyncIdx = idx;
-      rows[idx].classList.add("synced");
-      rows[idx].scrollIntoView({ behavior: "smooth", block: "center" });
+      if (idx === -1) return;
+      if (idx !== lastSyncIdx) {
+        clearSyncHighlight();
+        lastSyncIdx = idx;
+        rows[idx].classList.add("synced");
+        activateWordTracking(rows[idx], state.texts[idx]);
+        rows[idx].scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      // Kelime kelime YAKLAŞIK takip: YouTube'dan kelime bazlı zamanlama almıyoruz (transcript'te sadece
+      // bloğun başladığı saniye var) — bu yüzden bir sonraki bloğun başladığı ana kadar geçen süreye
+      // oranla kelimenin yaklaşık nerede olduğunu tahmin ediyoruz. Sesli okumadaki gibi kesin değil ama
+      // konuşma hızına yakın, göz için yeterince akıcı bir "takip ediyor" hissi veriyor.
+      const text = state.texts[idx];
+      const wordCount = text.split(/\s+/).filter(Boolean).length;
+      if (wordCount > 0) {
+        const blockStart = blocks[idx].sec;
+        const nextStart = blocks.slice(idx + 1).find((b) => b.sec != null)?.sec;
+        const blockDur = nextStart != null ? Math.max(nextStart - blockStart, 1) : 8;
+        const progress = Math.min(Math.max((currentTime - blockStart) / blockDur, 0), 1);
+        highlightWord(rows[idx], Math.min(Math.floor(progress * wordCount), wordCount - 1));
+      }
     }
 
     chrome.runtime.onMessage.addListener((msg) => {
@@ -692,10 +782,24 @@ async function init() {
       chrome.storage.local.set({ [TTS_VOICE_KEY_PREFIX + lang]: ttsVoiceSelect.value });
     });
 
+    let currentReadingIndex = -1;
+
     function ttsUpdateBtn() {
       ttsBtn.textContent = ttsState === "playing" ? `⏸ ${t("tts_pause_btn")}`
         : ttsState === "paused" ? `▶ ${t("tts_resume_btn")}` : `🔊 ${t("tts_btn")}`;
       ttsStopBtn.hidden = ttsState === "idle";
+    }
+
+    // Her satırın "▶"sı, o an okunmakta olan satırdayken "⏹"e dönüşüyor — okurken durdurmak için
+    // toolbar'a geri dönmeye gerek kalmıyor, tam okuduğun yerden durdurabiliyorsun.
+    function updateRowButtons() {
+      rows.forEach((row, i) => {
+        const btn = row.querySelector(".tts-play-from");
+        if (!btn) return;
+        const isActive = ttsState !== "idle" && i === currentReadingIndex;
+        btn.textContent = isActive ? "⏹" : "▶";
+        btn.title = isActive ? t("tts_stop_btn") : t("tts_play_from_hint");
+      });
     }
 
     function ttsSpeakFrom(index) {
@@ -711,10 +815,21 @@ async function init() {
       if (lang) utter.lang = lang;
       const chosenVoice = ttsVoices.find((v) => v.name === ttsVoiceSelect.value);
       if (chosenVoice) utter.voice = chosenVoice;
+      // Kelime kelime takip: tarayıcı/ses "boundary" olayını destekliyorsa charIndex GERÇEK (tahmini
+      // değil) kelime konumunu veriyor — sarıyla o an okunan kelimeyi vurguluyoruz. Her ses/tarayıcı
+      // bunu tetiklemeyebilir (bazı çevrimiçi sesler hiç vermiyor); o durumda sessizce sadece satır
+      // vurgusunda kalınır, hata vermez.
+      utter.onboundary = (ev) => {
+        if (ev.name && ev.name !== "word") return;
+        highlightWord(rows[index], wordIndexAtChar(text, ev.charIndex));
+      };
       utter.onend = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
       utter.onerror = () => { if (ttsState === "playing") ttsSpeakFrom(index + 1); };
-      rows.forEach((r) => r.classList.remove("reading"));
+      rows.forEach((r) => { r.classList.remove("reading"); deactivateWordTracking(r); });
       rows[index].classList.add("reading");
+      activateWordTracking(rows[index], text);
+      currentReadingIndex = index;
+      updateRowButtons();
       rows[index].scrollIntoView({ behavior: "smooth", block: "center" });
       speechSynthesis.speak(utter);
     }
@@ -722,8 +837,10 @@ async function init() {
     function ttsStop() {
       ttsState = "idle"; // onend/onerror'ın devam etmemesi için cancel()'dan ÖNCE ayarlanıyor
       speechSynthesis.cancel();
-      rows.forEach((r) => r.classList.remove("reading"));
+      rows.forEach((r) => { r.classList.remove("reading"); deactivateWordTracking(r); });
+      currentReadingIndex = -1;
       ttsUpdateBtn();
+      updateRowButtons();
     }
 
     function ttsPlayFrom(index) {
@@ -751,13 +868,17 @@ async function init() {
     ttsStopBtn.addEventListener("click", ttsStop);
 
     // Her satırın yanındaki "▶" — sadece istediğin yerden, o satırdan itibaren okumaya başlatıyor
-    // (baştan dinlemek zorunda kalmadan).
+    // (baştan dinlemek zorunda kalmadan). O an okunan satırdaysa aynı düğme "⏹" olarak durduruyor.
     rows.forEach((row, i) => {
       const playFromBtn = document.createElement("button");
       playFromBtn.className = "tts-play-from";
       playFromBtn.title = t("tts_play_from_hint");
       playFromBtn.textContent = "▶";
-      playFromBtn.addEventListener("click", (ev) => { ev.stopPropagation(); ttsPlayFrom(i); });
+      playFromBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        if (ttsState !== "idle" && i === currentReadingIndex) ttsStop();
+        else ttsPlayFrom(i);
+      });
       row.appendChild(playFromBtn);
     });
 
