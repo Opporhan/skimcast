@@ -400,7 +400,7 @@ function noteRowHtml(n) {
   return `
     <div class="row note-row">
       <div class="row-main">
-        <div class="title note-title">📝 ${escapeHtml(n.title || t("untitled_note"))}</div>
+        <div class="title note-title">${iconHtml(n.icon || DEFAULT_NOTE_ICON)} ${escapeHtml(n.title || t("untitled_note"))}</div>
         ${quoteLine}
         <div class="snippet">${escapeHtml(preview)} ${folderTag}</div>
         <div class="row-meta">${relativeDate(n.ts)} ${sourceLink}</div>
@@ -414,14 +414,25 @@ function noteRowHtml(n) {
 
 // Yeni not oluşturmak İÇİN de, var olan bir notu düzenlemek İÇİN de aynı panel — başlık + gövde.
 // existing verilirse "Sil" düğmesi de eklenir.
+const DEFAULT_NOTE_ICON = "📝";
+
+// İkon seçici tam olarak klasör oluşturma panelindeki AYNI desen (ICON_CHOICES/iconHtml, isteğe bağlı
+// resim yükleme) — "klasördekilerle aynı olacak şekilde" isteğine göre.
 function openNoteModal(existing) {
   return new Promise((resolve) => {
+    let icon = existing?.icon || DEFAULT_NOTE_ICON;
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
       <div class="modal modal-large">
         <h2>${existing ? t("edit_note_title") : t("new_note_title")}</h2>
+        <div class="icon-preview" id="noteIconPreview">${iconHtml(icon)}</div>
         <input id="noteTitleInput" class="note-title-input" placeholder="${escapeHtml(t("note_title_placeholder"))}">
+        <div class="icon-grid">
+          ${ICON_CHOICES.map((ic) => `<button type="button" class="icon-choice" data-icon="${escapeHtml(ic)}">${ic}</button>`).join("")}
+          <button type="button" class="icon-choice icon-upload" id="noteIconUploadBtn" title="${escapeHtml(t("upload_image_hint"))}">🖼️</button>
+          <input type="file" id="noteIconUploadInput" accept="image/*" hidden>
+        </div>
         <textarea id="noteBodyInput" class="snippet-edit snippet-edit-large" placeholder="${escapeHtml(t("note_body_placeholder"))}"></textarea>
         <div class="modal-actions">
           <span class="spacer"></span>
@@ -433,6 +444,7 @@ function openNoteModal(existing) {
     document.body.appendChild(overlay);
     const titleInput = overlay.querySelector("#noteTitleInput");
     const bodyInput = overlay.querySelector("#noteBodyInput");
+    const preview = overlay.querySelector("#noteIconPreview");
     titleInput.value = existing?.title || "";
     bodyInput.value = existing?.body || "";
     requestAnimationFrame(() => titleInput.focus());
@@ -442,11 +454,23 @@ function openNoteModal(existing) {
     if (existing) {
       overlay.querySelector("#noteDeleteBtn").addEventListener("click", () => close({ delete: true }));
     }
+    overlay.querySelectorAll(".icon-choice[data-icon]").forEach((btn) => {
+      btn.addEventListener("click", () => { icon = btn.dataset.icon; preview.innerHTML = iconHtml(icon); });
+    });
+    const fileInput = overlay.querySelector("#noteIconUploadInput");
+    overlay.querySelector("#noteIconUploadBtn").addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => { icon = reader.result; preview.innerHTML = iconHtml(icon); };
+      reader.readAsDataURL(file);
+    });
     overlay.querySelector("#noteSaveBtn").addEventListener("click", () => {
       const title = titleInput.value.trim();
       const body = bodyInput.value.trim();
       if (!title && !body) { close(null); return; }
-      close({ title, body });
+      close({ title, body, icon });
     });
   });
 }
@@ -490,6 +514,11 @@ async function init() {
 
     <section class="notes-section" id="notesSection" hidden>
       <div class="folder-grid">
+        <div class="folder-card active">
+          <span class="folder-icon">🗂️</span>
+          <span class="folder-name">${t("all_folders")}</span>
+          <span class="folder-count" id="notesAllCount">0</span>
+        </div>
         <button class="folder-card folder-card-add" id="newNoteBtn">
           <span class="folder-icon">＋</span>
           <span class="folder-name">${t("new_note_title")}</span>
@@ -595,6 +624,7 @@ async function init() {
   // filtresine bağlı değil (bir notun klasörü varsa satırında etiket olarak görünüyor, ama Notlarım
   // sekmesi kendi başına her zaman TÜM notları listeliyor).
   function renderNotesList(allNotes) {
+    document.getElementById("notesAllCount").textContent = String(allNotes.length);
     notesListEl.innerHTML = allNotes.length ? allNotes.map(noteRowHtml).join("") : `<p class="hint">${t("no_notes")}</p>`;
   }
 
@@ -904,7 +934,7 @@ async function init() {
         await saveNotes(notes.filter((x) => x.id !== n.id));
         showToast(t("modal_delete"));
       } else {
-        await saveNotes(notes.map((x) => (x.id === n.id ? { ...x, title: result.title, body: result.body } : x)));
+        await saveNotes(notes.map((x) => (x.id === n.id ? { ...x, title: result.title, body: result.body, icon: result.icon } : x)));
         showToast(t("modal_save"));
       }
       render();
@@ -931,7 +961,7 @@ async function init() {
     const result = await openNoteModal(null);
     if (!result) return;
     const notes = await getNotes();
-    notes.unshift({ id: newNoteId(), title: result.title, body: result.body, folder: "", ts: Date.now() });
+    notes.unshift({ id: newNoteId(), title: result.title, body: result.body, icon: result.icon, folder: "", ts: Date.now() });
     await saveNotes(notes);
     showToast(t("modal_save"));
     render();

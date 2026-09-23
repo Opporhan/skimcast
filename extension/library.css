@@ -89,10 +89,15 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 .notes-section { margin-top: 0; }
 .notes-section > .folder-grid { margin-bottom: 20px; }
 .folder-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+/* "Tümü", her klasör kartı VE "+ Yeni Klasör"/"+ Yeni Not" hepsi TAM AYNI ölçüde (genişlik+yükseklik) —
+   birini büyütüp diğerini unutunca fark ediliyordu, artık tek bir ölçü kümesi hepsine uygulanıyor. */
+.folder-card, .folder-card-add {
+  flex: 0 0 108px; width: 108px; height: 92px; padding: 14px; border-radius: 14px;
+  box-sizing: border-box; text-align: left;
+}
 .folder-card {
   position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
-  flex: 0 0 108px; width: 108px; padding: 14px; border: none; border-radius: 14px; background: var(--bg-subtle);
-  color: var(--text); cursor: pointer; text-align: left; box-sizing: border-box;
+  border: none; background: var(--bg-subtle); color: var(--text); cursor: pointer;
 }
 .folder-card:hover { filter: brightness(.96); }
 .folder-card.active { background: var(--accent-soft); color: var(--accent); }
@@ -102,9 +107,8 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 .folder-count { font-size: 11px; color: var(--text-muted); }
 .folder-card.active .folder-count { color: var(--accent); opacity: .8; }
 .folder-card-add {
-  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px;
-  flex: 0 0 132px; width: 132px; height: 88px; padding: 16px; border-radius: 16px; text-align: left;
-  color: var(--text-muted); border: 1.5px dashed var(--border); background: transparent; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 6px;
+  text-align: left; color: var(--text-muted); border: 1.5px dashed var(--border); background: transparent;
 }
 .folder-card-add:hover { background: var(--bg-subtle); color: var(--text); }
 .folder-card-add .folder-icon { font-size: 24px; }
