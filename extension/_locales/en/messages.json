@@ -248,12 +248,6 @@
   "video_note_placeholder": {
     "message": "Write a note about this video… (saved automatically)"
   },
-  "move_note_to_notes_btn": {
-    "message": "Move to My Notes"
-  },
-  "moved_to_notes_toast": {
-    "message": "Moved to My Notes."
-  },
   "move_to_folder_title": {
     "message": "Move to Folder"
   },

@@ -184,15 +184,14 @@ async function init() {
       <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_only_btn")}</button>
       <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
       <button id="moveBtn">${t("move_to_folder_btn")}</button>
-      <button id="noteBtn" class="toggle-btn${entry.videoNote ? " active" : ""}" title="${escapeHtml(t("video_note_hint"))}">📝 ${t("video_note_btn")}</button>
+      <button id="noteBtn" class="toggle-btn" title="${escapeHtml(t("video_note_hint"))}">📝 ${t("video_note_btn")}</button>
       ${ytVideoId ? `<button id="syncBtn" class="toggle-btn" title="${escapeHtml(t("sync_hint"))}">🔗 ${t("sync_btn")}</button>` : ""}
       <span class="toolbar-divider"></span>
       <button id="copyBtn">${t("copy_btn")}</button>
       <button id="downloadBtn">${t("download_btn")}</button>
     </div>
     <div id="videoNoteBox" class="video-note-box" hidden>
-      <textarea id="videoNoteText" class="video-note" placeholder="${escapeHtml(t("video_note_placeholder"))}">${escapeHtml(entry.videoNote || "")}</textarea>
-      <button id="moveNoteBtn" class="move-note-btn">📤 ${t("move_note_to_notes_btn")}</button>
+      <textarea id="videoNoteText" class="video-note" placeholder="${escapeHtml(t("video_note_placeholder"))}"></textarea>
     </div>
     ${canTranslate ? `
     <div class="toolbar-section">
@@ -252,11 +251,34 @@ async function init() {
   }
 
   // Bu videoya/bölüme dair genel bir not — tek bir favori/satırla değil, videonun tamamıyla ilgili
-  // ("özet", "sonra tekrar bak" gibi kişisel notlar). Tek satırlık favori notlarından ayrı: entry
-  // üzerinde (highlights değil) saklanıyor. Yazarken her tuşta kaydetmemek için kısa bir debounce var.
+  // ("özet", "sonra tekrar bak" gibi kişisel notlar). ÜÇ AYRI not kavramı (video notu / favori notu /
+  // serbest not) kafa karıştırıyordu — artık HEPSİ aynı paylaşılan depoda (skimcastNotes, Notlarım
+  // sekmesinde görünen liste): bu, o depodaki "videoId'si bu videoya eşit, satıra bağlı olmayan
+  // (sourceKey yok)" tek kaydı okuyup/yazıyor. Yani burada yazdığın şey zaten Notlarım'da — ayrıca
+  // "taşımana" gerek yok.
+  const NOTES_KEY = "skimcastNotes";
+  async function getNotes() {
+    const { [NOTES_KEY]: notes = [] } = await chrome.storage.local.get(NOTES_KEY);
+    return notes;
+  }
+  async function saveNotes(notes) {
+    await chrome.storage.local.set({ [NOTES_KEY]: notes });
+  }
+  function newNoteId() {
+    return `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+  }
+
   const noteBtn = document.getElementById("noteBtn");
   const videoNoteBox = document.getElementById("videoNoteBox");
   const videoNoteText = document.getElementById("videoNoteText");
+
+  // Geriye dönük uyumluluk: bu özelliğin daha önceki bir sürümünde not entry.videoNote'ta saklanıyordu.
+  // Hiç eşleşen paylaşılan not yoksa ama entry.videoNote doluysa, veri kaybı olmasın diye onu kullan —
+  // ilk kayıtta (aşağıdaki input dinleyicisi) zaten düzgün yere (skimcastNotes) taşınmış olacak.
+  const existingVideoNote = (await getNotes()).find((n) => n.videoId === id && !n.sourceKey);
+  videoNoteText.value = existingVideoNote?.body ?? entry.videoNote ?? "";
+  noteBtn.classList.toggle("active", !!videoNoteText.value.trim());
+
   noteBtn.addEventListener("click", () => {
     videoNoteBox.hidden = !videoNoteBox.hidden;
     if (!videoNoteBox.hidden) videoNoteText.focus();
@@ -265,36 +287,27 @@ async function init() {
   videoNoteText.addEventListener("input", () => {
     clearTimeout(noteSaveTimer);
     noteSaveTimer = setTimeout(async () => {
-      entry.videoNote = videoNoteText.value.trim();
-      noteBtn.classList.toggle("active", !!entry.videoNote);
-      await persistHighlights();
+      const body = videoNoteText.value.trim();
+      const notes = await getNotes();
+      const existing = notes.find((n) => n.videoId === id && !n.sourceKey);
+      if (body) {
+        if (existing) {
+          await saveNotes(notes.map((n) => (n === existing
+            ? { ...n, body, title: meta.title || n.title, sourceUrl: entry.url, sourceTitle: meta.title || "" }
+            : n)));
+        } else {
+          notes.unshift({
+            id: newNoteId(), title: meta.title || "", body, folder: "", ts: Date.now(),
+            videoId: id, sourceUrl: entry.url, sourceTitle: meta.title || "",
+          });
+          await saveNotes(notes);
+        }
+      } else if (existing) {
+        await saveNotes(notes.filter((n) => n !== existing));
+      }
+      if (entry.videoNote) { entry.videoNote = undefined; await persistHighlights(); } // eski alanı temizle
+      noteBtn.classList.toggle("active", !!body);
     }, 500);
-  });
-
-  // Bu videoya özel notu, kütüphanedeki genel "Notlarım" listesine gerçek, bağımsız bir not olarak
-  // TAŞIR (kopyalamaz) — video notu boşalır, aynı içerik artık Notlarım'da (bu videoya bağlı kalmadan,
-  // istersen bir klasöre de koyabilirsin). Kaynağı unutmayalım diye notun üzerinde videoya geri dönen
-  // bir bağlantı da kalıyor (sourceUrl/sourceTitle).
-  document.getElementById("moveNoteBtn").addEventListener("click", async () => {
-    const text = videoNoteText.value.trim();
-    if (!text) return;
-    const NOTES_KEY = "skimcastNotes";
-    const { [NOTES_KEY]: notes = [] } = await chrome.storage.local.get(NOTES_KEY);
-    notes.unshift({
-      id: `n${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
-      title: meta.title || "",
-      body: text,
-      folder: "",
-      ts: Date.now(),
-      sourceUrl: entry.url,
-      sourceTitle: meta.title || "",
-    });
-    await chrome.storage.local.set({ [NOTES_KEY]: notes });
-    entry.videoNote = "";
-    videoNoteText.value = "";
-    noteBtn.classList.remove("active");
-    await persistHighlights();
-    showToast(t("moved_to_notes_toast"));
   });
 
   async function toggleHighlight(i, starBtn) {

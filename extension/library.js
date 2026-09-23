@@ -226,15 +226,16 @@ async function getAllHighlights(index) {
   return all.sort((a, b) => b.ts - a.ts);
 }
 
+// Kişisel not artık burada (h.note) değil, paylaşılan Notlarım deposunda tutuluyor (bkz. edit-fav
+// dinleyicisi) — üç ayrı not kavramı kafa karıştırıyordu, hepsi tek listede birleşti. Bir favorinin notu
+// varsa artık "Notlarım" sekmesinde, alıntısıyla birlikte görünüyor.
 function highlightRowHtml(h) {
   const folderTag = h.folder ? `<span class="mini-tag">${escapeHtml(h.folder)}</span>` : "";
-  const noteLine = h.note ? `<div class="fav-note">📝 ${escapeHtml(h.note)}</div>` : "";
   return `
     <div class="row fav-row">
       <div class="row-main">
         <a class="title" href="viewer.html?id=${encodeURIComponent(h.videoId)}">${escapeHtml(h.videoTitle || "(başlıksız)")}</a>
         <div class="snippet">"${escapeHtml(h.text)}" ${folderTag}</div>
-        ${noteLine}
       </div>
       <div class="row-actions">
         <button class="move-fav" data-video-id="${escapeHtml(h.videoId)}" data-key="${escapeHtml(h.key)}" title="${escapeHtml(t("move_to_folder_title"))}">📁</button>
@@ -391,12 +392,16 @@ function newNoteId() {
 function noteRowHtml(n) {
   const folderTag = n.folder ? `<span class="mini-tag">${escapeHtml(n.folder)}</span>` : "";
   const preview = n.body.length > 140 ? `${n.body.slice(0, 140)}…` : n.body;
-  // Bir video notundan "Notlarıma Taşı" ile gelmişse, kaynağa geri dönebilesin diye bir bağlantı kalıyor.
+  // Bir videoya (n.sourceUrl) ya da videonun belirli bir satırına (n.sourceKey + n.sourceQuote) bağlıysa
+  // — video notu ya da bir favorinin kişisel notu olarak doğmuşsa — kaynağa geri dönen bağlantı ve
+  // (satıra bağlıysa) alıntının kendisi de gösteriliyor, bağlam kaybolmasın diye.
+  const quoteLine = n.sourceQuote ? `<div class="note-quote">"${escapeHtml(n.sourceQuote)}"</div>` : "";
   const sourceLink = n.sourceUrl ? `<a class="note-source" href="${escapeHtml(n.sourceUrl)}" target="_blank">🎬 ${escapeHtml(n.sourceTitle || n.sourceUrl)}</a>` : "";
   return `
     <div class="row note-row">
       <div class="row-main">
         <div class="title note-title">📝 ${escapeHtml(n.title || t("untitled_note"))}</div>
+        ${quoteLine}
         <div class="snippet">${escapeHtml(preview)} ${folderTag}</div>
         <div class="row-meta">${relativeDate(n.ts)} ${sourceLink}</div>
       </div>
@@ -617,6 +622,7 @@ async function init() {
   // Notion gibi not araçlarına doğrudan taşınabilsin diye. Hiçbir API/ağ isteği yok, tamamen yerel.
   async function exportFolderMarkdown(folderName) {
     const allHighlights = await getAllHighlights(index);
+    const allNotes = await getNotes();
     const videos = index.filter((e) => e.folder === folderName);
     const favs = allHighlights.filter((h) => (h.folder || NO_FOLDER) === folderName);
     const folder = folders.find((f) => f.name === folderName);
@@ -641,7 +647,8 @@ async function init() {
         const timeLabel = h.sec != null ? ` [${fmtTime(h.sec)}]` : "";
         const link = h.url && h.sec != null ? `${h.url}${Math.floor(h.sec)}` : "";
         md += `> ${h.text}\n> — ${h.videoTitle || "(başlıksız)"}${timeLabel}${link ? ` — [${t("open_link_label")}](${link})` : ""}\n`;
-        if (h.note) md += `\n📝 ${h.note}\n`;
+        const linkedNote = allNotes.find((n) => n.videoId === h.videoId && n.sourceKey === h.key);
+        if (linkedNote?.body) md += `\n📝 ${linkedNote.body}\n`;
         md += "\n";
       }
     }
@@ -828,18 +835,42 @@ async function init() {
       return;
     }
     // "Cümleler ile oynama" — favorilenen anın metnini küçük bir panelde düzenleme.
+    // Bir favorinin kişisel notu artık ayrı bir alanda (h.note) değil, paylaşılan Notlarım deposunda
+    // (skimcastNotes) — videoId + bu satırın anahtarıyla (sourceKey) eşleşen kayıt. Eski h.note'tan
+    // (bu özelliğin önceki bir sürümünde) veri kaybı olmasın diye, eşleşen kayıt yoksa onu kullanıyoruz.
     const editFav = e.target.closest(".edit-fav");
     if (editFav) {
+      const videoId = editFav.dataset.videoId;
+      const hKey = editFav.dataset.key;
       // DOM'dan metni ayrıştırmak yerine (tırnak içeren cümlelerde kırılgan) depodan taze okuyoruz.
-      const fk = archiveKey(editFav.dataset.videoId);
+      const fk = archiveKey(videoId);
       const { [fk]: full } = await chrome.storage.local.get(fk);
-      const h = full?.highlights?.find((x) => x.key === editFav.dataset.key);
+      const h = full?.highlights?.find((x) => x.key === hKey);
       if (!h) return;
-      const result = await openEditFavModal(h.text, h.note);
-      if (result) {
-        await updateHighlight(editFav.dataset.videoId, editFav.dataset.key, { text: result.text, note: result.note });
-        showToast(t("modal_save"));
+      const notes = await getNotes();
+      const linkedNote = notes.find((n) => n.videoId === videoId && n.sourceKey === hKey);
+      const result = await openEditFavModal(h.text, linkedNote?.body ?? h.note ?? "");
+      if (!result) return;
+      await updateHighlight(videoId, hKey, { text: result.text, note: undefined });
+      const body = result.note.trim();
+      const videoTitle = full.meta?.title || "";
+      const jumpLink = h.sec != null && full.meta?.linkPrefix ? `${full.meta.linkPrefix}${Math.floor(h.sec)}` : full.url;
+      if (body) {
+        if (linkedNote) {
+          await saveNotes(notes.map((n) => (n === linkedNote
+            ? { ...n, body, title: videoTitle, sourceQuote: result.text, sourceUrl: jumpLink, sourceTitle: videoTitle }
+            : n)));
+        } else {
+          notes.unshift({
+            id: newNoteId(), title: videoTitle, body, folder: "", ts: Date.now(),
+            videoId, sourceKey: hKey, sourceQuote: result.text, sourceUrl: jumpLink, sourceTitle: videoTitle,
+          });
+          await saveNotes(notes);
+        }
+      } else if (linkedNote) {
+        await saveNotes(notes.filter((n) => n !== linkedNote));
       }
+      showToast(t("modal_save"));
       render();
       return;
     }

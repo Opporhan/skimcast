@@ -59,6 +59,7 @@ h2 { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform
 .note-row .note-title { font-size: 15px; font-weight: 600; color: var(--text); }
 .note-source { color: var(--text-muted); text-decoration: none; }
 .note-source:hover { color: var(--accent); }
+.note-quote { margin-top: 4px; font-size: 13px; font-style: italic; color: var(--text-muted); }
 .note-row .row-actions .move-note, .note-row .row-actions .edit-note { font-size: 14px; }
 
 /* "Bunu hatırlıyor musun?" — eski bir favoriyi günlük olarak hatırlatan kart, boşken hiçbir yer kaplamaz. */
@@ -160,7 +161,6 @@ button:hover { filter: brightness(.96); }
 .row-actions .delete:hover { color: #d70015; }
 
 .fav-row .snippet { color: var(--text); font-size: 14px; }
-.fav-note { margin-top: 5px; font-size: 12px; color: var(--text-muted); }
 .mini-tag { font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 1px 7px; }
 .row-actions .move-fav, .row-actions .edit-fav { font-size: 14px; }
 
