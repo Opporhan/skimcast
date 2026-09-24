@@ -50,6 +50,27 @@
   "library_btn": {
     "message": "Kütüphane"
   },
+  "manual_add_toggle": {
+    "message": "Elle transcript ekle"
+  },
+  "manual_title_label": {
+    "message": "Başlık"
+  },
+  "manual_title_placeholder": {
+    "message": "ör. video/bölüm adı"
+  },
+  "manual_text_label": {
+    "message": "Metin"
+  },
+  "manual_text_placeholder": {
+    "message": "Metnini yapıştır — boş satırla ayrılmış her paragraf ayrı bir blok olur, ya da zaman damgası için [dd:ss] ile başlayan satırlar kullan…"
+  },
+  "manual_save_btn": {
+    "message": "Kaydet"
+  },
+  "manual_error_empty": {
+    "message": "Önce bir metin yapıştır."
+  },
   "library_link": {
     "message": "← Kütüphane"
   },
@@ -340,5 +361,11 @@
   },
   "date_days_ago": {
     "message": "gün önce"
+  },
+  "resume_toast": {
+    "message": "Kaldığın yerden devam ediyorsun."
+  },
+  "resume_badge": {
+    "message": "Devam Et"
   }
 }

@@ -50,6 +50,27 @@
   "library_btn": {
     "message": "Library"
   },
+  "manual_add_toggle": {
+    "message": "Add transcript manually"
+  },
+  "manual_title_label": {
+    "message": "Title"
+  },
+  "manual_title_placeholder": {
+    "message": "e.g. video/episode title"
+  },
+  "manual_text_label": {
+    "message": "Text"
+  },
+  "manual_text_placeholder": {
+    "message": "Paste your text — one paragraph per blank-line-separated block, or lines starting with [mm:ss] for timestamps…"
+  },
+  "manual_save_btn": {
+    "message": "Save"
+  },
+  "manual_error_empty": {
+    "message": "Paste some text first."
+  },
   "library_link": {
     "message": "← Library"
   },
@@ -340,5 +361,11 @@
   },
   "date_days_ago": {
     "message": "days ago"
+  },
+  "resume_toast": {
+    "message": "Continuing where you left off."
+  },
+  "resume_badge": {
+    "message": "Continue"
   }
 }

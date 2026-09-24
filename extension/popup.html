@@ -20,6 +20,16 @@
   <p id="status" class="status" hidden></p>
   <p id="error" class="error" hidden></p>
 
+  <button id="manualToggle" class="link-btn" data-i18n="manual_add_toggle">Add transcript manually</button>
+  <div id="manualForm" hidden>
+    <label data-i18n="manual_title_label" for="manualTitle">Title</label>
+    <input id="manualTitle" type="text" data-i18n-placeholder="manual_title_placeholder">
+    <label data-i18n="manual_text_label" for="manualText">Text</label>
+    <textarea id="manualText" rows="6" data-i18n-placeholder="manual_text_placeholder"></textarea>
+    <button id="manualSave" data-i18n="manual_save_btn">Save</button>
+    <p id="manualError" class="error" hidden></p>
+  </div>
+
   <a id="libraryLink" class="library-link" href="library.html" target="_blank" data-i18n="library_btn">Library</a>
 
   <script src="lang.js"></script>

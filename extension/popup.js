@@ -30,6 +30,36 @@ async function run() {
   }
 }
 
+// skimcast'in otomatik çekemediği içerikler (altyazısız video, üyelik gerektiren bir makale, elle
+// deşifre ettiğin bir ses kaydı) için: kullanıcı kendi metnini yapıştırır, biz arşivleriz. "[mm:ss]"
+// ile başlayan satırlar varsa zaman damgalı transcript gibi (tıkla-git YOK ama arama/favori/çeviri
+// hepsi çalışır), yoksa boş satırla ayrılmış paragrafları ayrı blok olarak alıyoruz.
+async function runManual() {
+  const btn = document.getElementById("manualSave");
+  const errorEl = document.getElementById("manualError");
+  errorEl.hidden = true;
+  const title = document.getElementById("manualTitle").value.trim();
+  const text = document.getElementById("manualText").value.trim();
+  if (!text) {
+    errorEl.hidden = false;
+    errorEl.textContent = t("manual_error_empty");
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const res = await chrome.runtime.sendMessage({ action: "addManual", title, text });
+    if (!res.ok) throw new Error(res.error);
+    document.getElementById("manualTitle").value = "";
+    document.getElementById("manualText").value = "";
+    document.getElementById("manualForm").hidden = true;
+  } catch (e) {
+    errorEl.hidden = false;
+    errorEl.textContent = (t("error_prefix") ? t("error_prefix") + " " : "") + (e.message || String(e));
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function init() {
   // Bu sayfa kütüphaneden ("skimcast" linki) NORMAL BİR SEKME olarak da açılabiliyor. document.referrer
   // güvenilir çıkmadı (uzantı sayfaları arası yönlendirmede boş kalabiliyor) — bunun yerine kütüphanedeki
@@ -46,6 +76,12 @@ async function init() {
     if (tab?.url && /^https?:\/\//.test(tab.url)) document.getElementById("url").value = tab.url;
   } catch { /* aktif sekme okunamadı, kullanıcı elle yapıştırır */ }
   document.getElementById("go").addEventListener("click", run);
+  document.getElementById("manualToggle").addEventListener("click", () => {
+    const form = document.getElementById("manualForm");
+    form.hidden = !form.hidden;
+    if (!form.hidden) document.getElementById("manualTitle").focus();
+  });
+  document.getElementById("manualSave").addEventListener("click", runManual);
 }
 
 init();

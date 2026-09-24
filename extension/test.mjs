@@ -42,13 +42,14 @@ let totalFns = 0;
   const names = [
     "fmtTime", "toBlocks", "youtubeId", "parseSubtitles", "parsePodcastJson",
     "hashString", "stableId", "parseTimeLabel", "stripNonSpeech", "parseTimedBlocks",
-    "blocksFromNative",
+    "blocksFromNative", "textToManualBlocks",
   ];
   const preamble = "const BLOCK_SECONDS = 30;\nconst YT_ID_RE = " + src.match(/const YT_ID_RE = (.+);/)[1] + ";\n" +
     "const NON_SPEECH_RE = " + src.match(/const NON_SPEECH_RE = (.+);/)[1] + ";\n";
   const {
     fmtTime, toBlocks, youtubeId, parseSubtitles, parsePodcastJson,
     hashString, stableId, parseTimeLabel, stripNonSpeech, parseTimedBlocks, blocksFromNative,
+    textToManualBlocks,
   } = await extract("background.js", names, preamble);
   totalFns += names.length;
 
@@ -117,6 +118,18 @@ let totalFns = 0;
   assert.equal(cleaned[1].text, "devam ediyor");
   assert.deepEqual(cleaned[1].words.map((w) => w.text), ["devam", "ediyor"]); // (alkış) kelime grubu da düşmeli
   assert.equal(blocksFromNative(undefined).length, 0); // rawBlocks hiç gelmezse çökmemeli
+
+  // textToManualBlocks: popup'taki "Elle transcript ekle" formunun ayrıştırma mantığı — zaman
+  // damgalı ("[mm:ss]") satırlar varsa öyle, yoksa boş satırla ayrılmış paragrafları ayrı blok say.
+  assert.deepEqual(
+    textToManualBlocks("Birinci paragraf\nikinci satır.\n\nİkinci paragraf."),
+    [{ sec: null, text: "Birinci paragraf ikinci satır." }, { sec: null, text: "İkinci paragraf." }]
+  );
+  assert.deepEqual(
+    textToManualBlocks("[00:05] merhaba\n[00:10] dünya"),
+    [{ sec: 5, text: "merhaba" }, { sec: 10, text: "dünya" }]
+  );
+  assert.equal(textToManualBlocks("").length, 0);
 }
 
 // ================================================================== viewer.js (çeviri kalitesi + kelime takibi)

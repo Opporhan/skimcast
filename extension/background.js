@@ -393,6 +393,44 @@ async function fetchAndOpen(url) {
   return meta;
 }
 
+// ---------------------------------------------------------------- elle transcript ekleme
+// skimcast'in otomatik çekemediği içerikler için (altyazısız video, üyelik gerektiren makale, elle
+// deşifre edilmiş bir kayıt): kullanıcı popup'tan kendi metnini yapıştırır. "[mm:ss]" ile başlayan
+// satırlar varsa (parseTimedBlocks zaten bunu tanıyor) zaman damgalı transcript gibi davranır — tıkla-
+// git çalışmaz (kaynak video/link yok) ama arama/favori/çeviri/sesli okuma hepsi normal çalışır. Yoksa
+// boş satırla ayrılmış her paragraf kendi bloğu olur.
+function textToManualBlocks(text) {
+  const hasTimestamps = /^\s*\[\d{1,2}(?::\d{2}){1,2}\]/m.test(text);
+  if (hasTimestamps) return parseTimedBlocks(text);
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.replace(/\s+/g, " ").trim()).filter(Boolean);
+  return parseTimedBlocks(paragraphs.join("\n"));
+}
+
+async function addManual(title, text) {
+  const blocks = textToManualBlocks(text);
+  if (!blocks.length) throw new SkimError("Not boş olamaz.");
+  const meta = { title: title?.trim() || "(başlıksız)", method: "elle eklendi", duration: "", linkPrefix: "" };
+  // Aynı başlık/metinle tekrar eklense bile önceki kaydın üzerine YAZMASIN diye zaman damgası da hash'e
+  // dahil — her "elle ekle" gerçekten yeni, bağımsız bir arşiv kaydı oluşturuyor.
+  const id = `manual:${hashString(`${meta.title}|${text.slice(0, 500)}|${Date.now()}`)}`;
+  await saveToArchive(id, "", meta, blocks);
+  return { id, meta };
+}
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.action !== "addManual") return;
+  (async () => {
+    try {
+      const { id } = await addManual(msg.title, msg.text);
+      chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(id)}`) });
+      sendResponse({ ok: true });
+    } catch (e) {
+      sendResponse({ ok: false, error: e instanceof SkimError ? e.message : `Beklenmeyen hata: ${e.message || e}` });
+    }
+  })();
+  return true;
+});
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.action !== "fetch") return;
   (async () => {
