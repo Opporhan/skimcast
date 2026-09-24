@@ -198,13 +198,13 @@
     "message": "Bu transcript'te ara…"
   },
   "copy_btn": {
-    "message": "📋 Transcript'i Kopyala"
+    "message": "Transcript'i Kopyala"
   },
   "copied": {
     "message": "Kopyalandı!"
   },
   "download_btn": {
-    "message": "⬇️ İndir"
+    "message": "İndir"
   },
   "download_as_txt": {
     "message": "Metin olarak (.txt)"
@@ -231,10 +231,10 @@
     "message": "Favorilere ekle/çıkar"
   },
   "time_toggle_btn": {
-    "message": "🕐 Zaman Damgaları"
+    "message": "Zaman Damgaları"
   },
   "move_to_folder_btn": {
-    "message": "📁 Dosyaya Taşı"
+    "message": "Dosyaya Taşı"
   },
   "sync_btn": {
     "message": "Videoyla Eşitle"

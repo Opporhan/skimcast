@@ -132,7 +132,10 @@ async function renderCta(body, videoId) {
 
 function renderIframe(body, videoId) {
   const src = chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(`yt:${videoId}`)}`);
-  body.innerHTML = `<iframe id="${SIDEBAR_IFRAME_ID}" src="${src}" allow="clipboard-write"></iframe>`;
+  // "allow" olmadan Chrome'un cihaz üzerindeki çeviri/dil-tespit API'leri (Translator/LanguageDetector)
+  // bir iframe içinde varsayılan olarak kapalı geliyor (Permissions Policy) — "kaynak dil tespit
+  // edilemedi" hatasının sebebi buydu. clipboard-write kopyala düğmesi için zaten gerekliydi.
+  body.innerHTML = `<iframe id="${SIDEBAR_IFRAME_ID}" src="${src}" allow="clipboard-write; translator; language-detector"></iframe>`;
 }
 
 // Video değiştiğinde (SPA navigasyonu) paneli o videoya göre yeniden kuruyoruz: arşivde zaten varsa

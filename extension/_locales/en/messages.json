@@ -198,13 +198,13 @@
     "message": "Search this transcript…"
   },
   "copy_btn": {
-    "message": "📋 Copy Transcript"
+    "message": "Copy Transcript"
   },
   "copied": {
     "message": "Copied!"
   },
   "download_btn": {
-    "message": "⬇️ Download"
+    "message": "Download"
   },
   "download_as_txt": {
     "message": "As Text (.txt)"
@@ -231,10 +231,10 @@
     "message": "Add/remove favorite"
   },
   "time_toggle_btn": {
-    "message": "🕐 Timestamps"
+    "message": "Timestamps"
   },
   "move_to_folder_btn": {
-    "message": "📁 Move to Folder"
+    "message": "Move to Folder"
   },
   "sync_btn": {
     "message": "Sync With Video"

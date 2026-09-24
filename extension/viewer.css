@@ -75,6 +75,7 @@ h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em;
    büyük harf gri başlıklarla gruplanmış bölümler — renk sadece aktif/hover'da vurgu olarak. */
 .action-row { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin-bottom: 2px; }
 .action-row button {
+  display: inline-flex; align-items: center; gap: 5px;
   background: none; color: var(--text-muted); font-weight: 500; padding: 6px 8px;
 }
 .action-row button:hover { background: var(--bg-subtle); color: var(--text); }
@@ -194,3 +195,19 @@ button:hover { filter: brightness(.96); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 .error { color: var(--error-text); background: var(--error-bg); border-radius: 12px; padding: 14px 16px; white-space: pre-wrap; }
+
+/* Dar genişlik (YouTube kenar paneli gibi) — çok sayıda pill düğme + seçim kutusu tek satırda kalamayıp
+   çirkin bir şekilde alt alta yığılıyordu. Burada iki şey değişiyor: (1) araç çubuğundaki düğmeler sadece
+   ikon gösteriyor (etiketler gizleniyor, title ile hâlâ ipucu var) — tek, düzenli bir satıra sığıyorlar;
+   (2) çeviri/sesli okuma satırlarındaki seçim kutuları/düğmeler tam genişlik alıp ALT ALTA (ama düzenli,
+   her biri kendi satırında) diziliyor — yan yana sıkışıp "🌐 Adri" gibi bir seçim kutusunun metni
+   kırpılması/satırın taşması yerine, her kontrol kendi rahat genişliğinde okunuyor. */
+@media (max-width: 480px) {
+  #app { padding: 24px 14px 60px; }
+  h1 { font-size: 21px; }
+  .action-row .btn-label { display: none; }
+  .action-row button { padding: 8px 9px; }
+  .toolbar-section .translate-bar { flex-direction: column; align-items: stretch; }
+  .toolbar-section .translate-bar select,
+  .toolbar-section .translate-bar button { width: 100%; }
+}

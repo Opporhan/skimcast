@@ -102,10 +102,13 @@ function wordIndexAtChar(text, charIndex) {
 // (zaten değiştirilmiş, ör. "✓ Kopyalandı") metinden okuyordu — bu yüzden buton kalıcı olarak takılı
 // kalabiliyordu. Artık gerçek orijinal metni bir kere, elemente kendi verisi olarak saklıyoruz.
 function flashLabel(btn, label) {
-  if (btn.dataset.originalLabel === undefined) btn.dataset.originalLabel = btn.textContent;
-  btn.textContent = label;
+  // Düğme artık ikon+etiket olarak iki ayrı span'a bölünmüş olabilir (dar ekranda etiket gizleniyor,
+  // ikon her zaman görünüyor) — varsa sadece etiketi değiştiriyoruz, ikon yerinde kalıyor.
+  const target = btn.querySelector(".btn-label") || btn;
+  if (target.dataset.originalLabel === undefined) target.dataset.originalLabel = target.textContent;
+  target.textContent = label;
   clearTimeout(btn._flashTimer);
-  btn._flashTimer = setTimeout(() => { btn.textContent = btn.dataset.originalLabel; }, 1500);
+  btn._flashTimer = setTimeout(() => { target.textContent = target.dataset.originalLabel; }, 1500);
 }
 
 // ------------------------------------------------------------ çeviri (cihaz üzerinde, Translator API)
@@ -195,14 +198,14 @@ async function init() {
       <input id="search" type="text" placeholder="${escapeHtml(t("search_placeholder"))}">
     </div>
     <div class="action-row">
-      <button id="favOnlyBtn" class="toggle-btn"><span class="star-ico">☆</span> ${t("fav_only_btn")}</button>
-      <button id="timeToggleBtn" class="toggle-btn">${t("time_toggle_btn")}</button>
-      <button id="moveBtn">${t("move_to_folder_btn")}</button>
-      <button id="noteBtn" class="toggle-btn" title="${escapeHtml(t("video_note_hint"))}">📝 ${t("video_note_btn")}</button>
-      ${ytVideoId ? `<button id="syncBtn" class="toggle-btn" title="${escapeHtml(t("sync_hint"))}">🔗 ${t("sync_btn")}</button>` : ""}
+      <button id="favOnlyBtn" class="toggle-btn" title="${escapeHtml(t("fav_only_btn"))}"><span class="btn-icon star-ico">☆</span><span class="btn-label">${t("fav_only_btn")}</span></button>
+      <button id="timeToggleBtn" class="toggle-btn" title="${escapeHtml(t("time_toggle_btn"))}"><span class="btn-icon">🕐</span><span class="btn-label">${t("time_toggle_btn")}</span></button>
+      <button id="moveBtn" title="${escapeHtml(t("move_to_folder_btn"))}"><span class="btn-icon">📁</span><span class="btn-label">${t("move_to_folder_btn")}</span></button>
+      <button id="noteBtn" class="toggle-btn" title="${escapeHtml(t("video_note_hint"))}"><span class="btn-icon">📝</span><span class="btn-label">${t("video_note_btn")}</span></button>
+      ${ytVideoId ? `<button id="syncBtn" class="toggle-btn" title="${escapeHtml(t("sync_hint"))}"><span class="btn-icon">🔗</span><span class="btn-label">${t("sync_btn")}</span></button>` : ""}
       <span class="toolbar-divider"></span>
-      <button id="copyBtn">${t("copy_btn")}</button>
-      <button id="downloadBtn">${t("download_btn")}</button>
+      <button id="copyBtn" title="${escapeHtml(t("copy_btn"))}"><span class="btn-icon">📋</span><span class="btn-label">${t("copy_btn")}</span></button>
+      <button id="downloadBtn" title="${escapeHtml(t("download_btn"))}"><span class="btn-icon">⬇️</span><span class="btn-label">${t("download_btn")}</span></button>
     </div>
     <div id="videoNoteBox" class="video-note-box" hidden>
       <textarea id="videoNoteText" class="video-note" placeholder="${escapeHtml(t("video_note_placeholder"))}"></textarea>
