@@ -71,17 +71,17 @@ h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em;
   background: var(--bg-subtle); color: var(--text);
 }
 .search-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* Uygulama tarzı (iOS/Android alt sekme çubuğu gibi) araç çubuğu: eşit genişlikte hücreler, her birinde
-   ikon üstte + küçük etiket altta, ortalanmış. Yan yana pill düğmeler (eski tasarım) dar genişlikte
-   çirkin bir şekilde farklı boylarda alt alta yığılıyordu — sabit bir ızgara (grid) bu sorunu kökten
-   çözüyor: hücreler her zaman eşit boyda, düzenli sıralanıyor, ister dar (YouTube kenar paneli) ister
-   geniş (tam sekme) olsun aynı temiz görünümü koruyor. */
+/* Uygulama tarzı (iOS/Android alt sekme çubuğu gibi) araç çubuğu: eşit boyda, sabit genişlikli hücreler,
+   her birinde ikon üstte + küçük etiket altta, ortalanmış. Grid (auto-fill) yerine flexbox +
+   justify-content:center kullanıyoruz — son satırda tam sığmayan düğmeler (ör. tek başına "İndir")
+   Grid'de sola yaslanıp sağda boşluk bırakıyordu; flex ile her satır KENDİ İÇİNDE ortalanıyor, üstteki
+   arama kutusuyla aynı hizada, düzenli duruyor. Hem YouTube kenar panelinde hem tam sekmede aynı. */
 .action-row {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
-  gap: 4px; margin-bottom: 10px;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-bottom: 10px;
 }
 .action-row button {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  flex: 0 0 76px; width: 76px;
   background: none; color: var(--text-muted); font-weight: 500; padding: 9px 4px; border-radius: 10px;
   text-align: center; white-space: normal;
 }
@@ -214,7 +214,7 @@ button:hover { filter: brightness(.96); }
 @media (max-width: 480px) {
   #app { padding: 24px 14px 60px; }
   h1 { font-size: 21px; }
-  .action-row { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+  .action-row button { flex-basis: 64px; width: 64px; }
   .toolbar-section .translate-bar { flex-direction: column; align-items: stretch; }
   .toolbar-section .translate-bar select,
   .toolbar-section .translate-bar button { width: 100%; }
