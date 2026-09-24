@@ -151,15 +151,31 @@ function restoreNumbers(text, numbers) {
   return text.replace(/⟦(\d+)⟧/g, (m, idx) => numbers[Number(idx)] ?? m);
 }
 
+// "Birebir tam çeviri" için kaba ama işe yarar bir kalite kapısı: çıktı, kaynağa göre KELİME SAYISI
+// olarak çok kısaysa (%40'ın altı), model muhtemelen bir şeyleri atlayıp özetlemiş demektir. Çok kısa
+// cümlelerde (2 kelime ve altı) bu oran güvenilir değil, kontrol etmiyoruz.
+function isSuspiciouslyShort(sourceText, translatedText) {
+  const srcWords = sourceText.split(/\s+/).filter(Boolean).length;
+  if (srcWords <= 2) return false;
+  const outWords = translatedText.split(/\s+/).filter(Boolean).length;
+  return outWords < srcWords * 0.4;
+}
+
+// Sadece dili DEĞİL, tespit edilemediyse SEBEBİNİ de döndürüyor — "bu videonun dili tespit edilemedi"
+// (içerikle ilgili, tek seferlik bir sorun) ile "bu cihaz/tarayıcı özelliği hiç desteklemiyor" (kalıcı,
+// hiçbir videoda çalışmayacak) birbirinden çok farklı şeyler; kullanıcıya ikisini de aynı belirsiz
+// mesajla göstermek kafa karıştırıyordu. "unsupported" → Translator de aynı altyapıyı (Gemini Nano)
+// kullandığı için o da çalışmayacak demektir, ikisi için TEK bir net mesaj gösteriyoruz.
 async function detectSourceLanguage(sampleText) {
-  if (typeof LanguageDetector === "undefined") return null;
+  if (typeof LanguageDetector === "undefined") return { lang: null, reason: "no-api" };
   try {
-    if ((await LanguageDetector.availability()) === "unavailable") return null;
+    if ((await LanguageDetector.availability()) === "unavailable") return { lang: null, reason: "unsupported" };
     const detector = await LanguageDetector.create();
     const [top] = await detector.detect(sampleText.slice(0, 800));
-    return top && top.detectedLanguage !== "und" && top.confidence > 0.4 ? top.detectedLanguage : null;
+    const lang = top && top.detectedLanguage !== "und" && top.confidence > 0.4 ? top.detectedLanguage : null;
+    return { lang, reason: lang ? "ok" : "low-confidence" };
   } catch {
-    return null;
+    return { lang: null, reason: "error" };
   }
 }
 
@@ -176,7 +192,7 @@ async function detectSourceLanguage(sampleText) {
 // artırıyoruz — entry.translations önbelleği, hangi sürümle üretildiği bu numarayla eşleşmiyorsa
 // (translateBtn dinleyicisine bkz.) geçersiz sayılıp otomatik yeniden çevriliyor. Bunsuz, önceden bir
 // kere çevrilmiş bir video hep eski (düzeltmeden önceki) çeviriyi göstermeye devam ederdi.
-const TRANSLATION_CACHE_VERSION = 2;
+const TRANSLATION_CACHE_VERSION = 3;
 const LEAKED_TAG_RE = /<[^<>]*>/g;
 function cleanTranslation(text, fallback) {
   if (!text) return fallback;
@@ -242,16 +258,16 @@ async function init() {
     <div id="videoNoteBox" class="video-note-box" hidden>
       <textarea id="videoNoteText" class="video-note" placeholder="${escapeHtml(t("video_note_placeholder"))}"></textarea>
     </div>
-    ${canTranslate ? `
     <div class="toolbar-section">
       <div class="toolbar-label">${t("section_translate")}</div>
+      ${canTranslate ? `
       <div class="translate-bar">
         <select id="translateLang"></select>
         <button id="translateBtn">${t("translate_btn")}</button>
         <button id="originalBtn" hidden>${t("translate_original_btn")}</button>
         <span id="translateStatus" class="hint" hidden></span>
-      </div>
-    </div>` : ""}
+      </div>` : `<p class="hint">${t("translate_unsupported_device")}</p>`}
+    </div>
     ${canSpeak ? `
     <div class="toolbar-section">
       <div class="toolbar-label">${t("section_tts")}</div>
@@ -844,8 +860,9 @@ async function init() {
   // Kaynak dili hem çeviri hem sesli okuma kullanıyor — burada bir kere tespit edip ikisine de
   // veriyoruz. Sesli okuma bunu almadan önce hep İngilizce/varsayılan sesle okumaya çalışıyordu
   // (Türkçe metni yanlış telaffuzla), çünkü dil hiç belirtilmiyordu.
-  const sourceLang = (canSpeak || canTranslate)
-    ? await detectSourceLanguage(blocks.map((b) => b.text).join(" ")) : null;
+  const sourceLangResult = (canSpeak || canTranslate)
+    ? await detectSourceLanguage(blocks.map((b) => b.text).join(" ")) : { lang: null, reason: "no-api" };
+  const sourceLang = sourceLangResult.lang;
 
   // ------------------------------------------------------------ sesli okuma (cihaz üzerinde, Web Speech API)
   // Videoyu hiç açmadan, sadece dinleyerek "tüketmek" için — ekrandaki hangi metin görünüyorsa (orijinal
@@ -1037,7 +1054,11 @@ async function init() {
 
   if (!sourceLang) {
     statusEl.hidden = false;
-    statusEl.textContent = t("translate_no_source");
+    // "unsupported"/"no-api": cihaz/tarayıcı özelliği hiç desteklemiyor — kalıcı, hangi video olursa
+    // olsun aynı sonuç. "low-confidence"/"error": bu videoya/içeriğe özel, tek seferlik bir durum. İkisini
+    // aynı belirsiz mesajla göstermek "bir bug mı var" diye düşündürüyordu.
+    statusEl.textContent = sourceLangResult.reason === "unsupported" || sourceLangResult.reason === "no-api"
+      ? t("translate_unsupported_device") : t("translate_no_source");
     translateBtn.disabled = true;
     translateSelect.disabled = true;
     return;
@@ -1118,10 +1139,19 @@ async function init() {
           for (const sentence of sentences) {
             try {
               const { protectedText, numbers } = protectNumbers(sentence);
-              const raw = await translator.translate(protectedText);
-              let cleaned = cleanTranslation(raw, protectedText);
+              let cleaned = cleanTranslation(await translator.translate(protectedText), protectedText);
+              // Çıktı şüpheli derecede kısaysa (muhtemelen içerik atlanmış/özetlenmiş) bir kere daha
+              // deniyoruz — model aynı girdide farklı bir denemede daha tam bir çıktı üretebiliyor.
+              if (isSuspiciouslyShort(sentence, cleaned)) {
+                try {
+                  const retry = cleanTranslation(await translator.translate(protectedText), protectedText);
+                  if (!isSuspiciouslyShort(sentence, retry)) cleaned = retry;
+                } catch { /* yeniden deneme başarısız, ilk sonuçla devam */ }
+              }
               if (numbers.length) cleaned = restoreNumbers(cleaned, numbers);
-              translatedParts.push(cleaned);
+              // İki denemeden sonra da hâlâ eksikse: eksik/yanlış bir çeviriyi doğruymuş gibi göstermek
+              // yerine o cümleyi ORİJİNAL diliyle bırakmak daha dürüst.
+              translatedParts.push(isSuspiciouslyShort(sentence, cleaned) ? sentence : cleaned);
             } catch {
               // Tek bir cümlede çeviri motoru hata verirse tüm bloğu iptal etmek yerine o cümleyi
               // orijinal haliyle bırakıp devam ediyoruz.

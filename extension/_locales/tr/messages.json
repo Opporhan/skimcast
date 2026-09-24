@@ -308,6 +308,9 @@
   "translate_no_source": {
     "message": "Kaynak dil tespit edilemedi, çeviri kullanılamıyor."
   },
+  "translate_unsupported_device": {
+    "message": "Bu tarayıcı/cihaz cihaz üzerinde çeviriyi desteklemiyor (Windows/macOS/Linux'ta Chrome 138+ ve yeterli RAM/depolama/GPU gerekiyor). Bu kalıcı — burada hiçbir video için çalışmayacak."
+  },
   "tts_btn": {
     "message": "Sesli Oku"
   },

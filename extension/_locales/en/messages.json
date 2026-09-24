@@ -308,6 +308,9 @@
   "translate_no_source": {
     "message": "Couldn't detect the source language; translation isn't available."
   },
+  "translate_unsupported_device": {
+    "message": "On-device translation isn't supported on this browser/device (needs Chrome 138+ on Windows/macOS/Linux, with enough RAM/storage/GPU). This is permanent — it won't work for any video here."
+  },
   "tts_btn": {
     "message": "Read Aloud"
   },
