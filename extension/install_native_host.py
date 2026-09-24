@@ -6,11 +6,12 @@ Bundan sonra tarayıcı, uzantı YouTube transcript'i istediğinde skills/summar
 kendisi anlık olarak başlatır ve kapatır — elle açıp bırakman gereken bir sunucu yok.
 
 Kullanım:  python3 extension/install_native_host.py
+           (Windows'ta "python3" değil "python" yaz — o komut orada genelde yok, "python3 komutu
+           bulunamadı" hatası alırsan bu yüzdendir. Önce Python 3'ü python.org'dan kur, kurulum
+           ekranında "Add python.exe to PATH" kutucuğunu işaretle.)
 
-NOT (dürüstlük payı): macOS/Linux tarafı gerçek makinelerde test edildi. Windows tarafı (registry
-kaydı + .bat başlatıcı) Chrome'un kendi belgelerindeki gereksinimlere göre yazıldı ama gerçek bir
-Windows makinesinde DOĞRULANAMADI — bu ortamda bir Windows test makinesi yok. Windows'ta sorun
-yaşarsan lütfen bildir.
+NOT: macOS/Linux VE Windows tarafı artık gerçek makinelerde doğrulandı (Windows: Chrome'da test
+edildi ve çalıştı; Edge'de de aynı kayıt mekanizması kullanıldığı için çalışması bekleniyor).
 """
 
 import sys

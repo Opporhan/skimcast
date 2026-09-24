@@ -91,7 +91,7 @@ Right-click a video (or paste a link in the popup) → transcript opens in a new
 
 ### Install (unpacked, not on a store)
 
-1. Register the native helper (one-time, lets the extension read YouTube captions without hitting YouTube's bot detection): `python3 extension/install_native_host.py`
+1. Register the native helper (one-time, lets the extension read YouTube captions without hitting YouTube's bot detection): `python3 extension/install_native_host.py` (**on Windows use `python` instead of `python3`** — that command usually doesn't exist there; needs Python 3 installed first, with "Add python.exe to PATH" checked during setup)
 2. Open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**, click **Load unpacked**, select the `extension/` folder.
 3. Click the toolbar icon on any YouTube/podcast/article page, or right-click the page and choose **skimcast: Get Transcript**.
 
