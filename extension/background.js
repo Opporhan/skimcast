@@ -373,6 +373,22 @@ async function fetchOnly(url) {
 
 async function fetchAndOpen(url) {
   const { id, meta } = await fetchOnly(url);
+  // Bu video zaten bir YouTube sekmesinde açıksa YENİ SEKME AÇMA — o sekmenin kenar paneline
+  // (youtube_sync.js) haber ver, orada (videonun hemen yanında) göstersin. Video hiçbir sekmede açık
+  // değilse (ör. linki popup'a yapıştırıp video hiç izlenmiyorken getirdiyse) gösterecek bir sayfa yok,
+  // eskisi gibi yeni sekmede aç.
+  const ytId = youtubeId(url);
+  if (ytId) {
+    const tabs = await chrome.tabs.query({ url: ["https://www.youtube.com/*", "https://youtu.be/*"] });
+    const match = tabs.find((tab) => youtubeId(tab.url || "") === ytId);
+    if (match) {
+      try {
+        await chrome.tabs.sendMessage(match.id, { type: "skimcast-refresh-panel", videoId: ytId });
+        await chrome.tabs.update(match.id, { active: true });
+        return meta;
+      } catch { /* içerik betiği yok/yanıt vermedi (ör. sekme çok eski) — sekmede aç */ }
+    }
+  }
   chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(id)}`) });
   return meta;
 }

@@ -157,6 +157,17 @@ async function ensureSidebarPanel(videoId) {
   else await renderCta(body, videoId);
 }
 
+// Popup'tan ya da sağ tık menüsünden "Transcript'i Getir" tetiklendiğinde (background.js:fetchAndOpen)
+// — bu video zaten bu sekmede açıksa arka plan yeni sekme açmak yerine buraya haber veriyor. panelVideoId'yi
+// sıfırlayıp ensureSidebarPanel'i zorla yeniden çalıştırıyoruz ki artık arşivde olan kaydı görüp iframe'e
+// geçsin (aksi halde "zaten bu videoya göre kurulu" diye hiçbir şey yapmadan çıkardı).
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg?.type === "skimcast-refresh-panel" && msg.videoId) {
+    panelVideoId = null;
+    ensureSidebarPanel(msg.videoId);
+  }
+});
+
 attach();
 // YouTube bir SPA — sayfa hiç yenilenmeden video/URL değişebiliyor (bir sonraki videoya geçme, ilgili
 // video tıklama, vb.). Kendi navigasyon olayını dinliyoruz; garanti olsun diye periyodik de kontrol ediyoruz.
