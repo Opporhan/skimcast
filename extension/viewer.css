@@ -71,16 +71,25 @@ h1 { font-size: 26px; font-weight: 700; margin: 0 0 4px; letter-spacing: -.02em;
   background: var(--bg-subtle); color: var(--text);
 }
 .search-row input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-/* iPhone 5S / iOS 7 esintili sade araç çubuğu: dolgusuz düz düğmeler, ince ayraçlar,
-   büyük harf gri başlıklarla gruplanmış bölümler — renk sadece aktif/hover'da vurgu olarak. */
-.action-row { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; margin-bottom: 2px; }
-.action-row button {
-  display: inline-flex; align-items: center; gap: 5px;
-  background: none; color: var(--text-muted); font-weight: 500; padding: 6px 8px;
+/* Uygulama tarzı (iOS/Android alt sekme çubuğu gibi) araç çubuğu: eşit genişlikte hücreler, her birinde
+   ikon üstte + küçük etiket altta, ortalanmış. Yan yana pill düğmeler (eski tasarım) dar genişlikte
+   çirkin bir şekilde farklı boylarda alt alta yığılıyordu — sabit bir ızgara (grid) bu sorunu kökten
+   çözüyor: hücreler her zaman eşit boyda, düzenli sıralanıyor, ister dar (YouTube kenar paneli) ister
+   geniş (tam sekme) olsun aynı temiz görünümü koruyor. */
+.action-row {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 4px; margin-bottom: 10px;
 }
+.action-row button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  background: none; color: var(--text-muted); font-weight: 500; padding: 9px 4px; border-radius: 10px;
+  text-align: center; white-space: normal;
+}
+.action-row .btn-icon { font-size: 17px; line-height: 1; }
+.action-row .btn-label { font-size: 10.5px; line-height: 1.15; }
 .action-row button:hover { background: var(--bg-subtle); color: var(--text); }
 .action-row .toggle-btn.active { background: var(--accent-soft); color: var(--accent); }
-.toolbar-divider { width: 1px; align-self: stretch; background: var(--border); margin: 2px 2px; }
+.toolbar-divider { display: none; }
 .video-note-box { margin: 4px 0 10px; }
 .video-note {
   width: 100%; min-height: 70px; padding: 10px 12px; border: none; border-radius: 10px;
@@ -205,8 +214,7 @@ button:hover { filter: brightness(.96); }
 @media (max-width: 480px) {
   #app { padding: 24px 14px 60px; }
   h1 { font-size: 21px; }
-  .action-row .btn-label { display: none; }
-  .action-row button { padding: 8px 9px; }
+  .action-row { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
   .toolbar-section .translate-bar { flex-direction: column; align-items: stretch; }
   .toolbar-section .translate-bar select,
   .toolbar-section .translate-bar button { width: 100%; }

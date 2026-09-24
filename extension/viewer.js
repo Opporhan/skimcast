@@ -172,6 +172,11 @@ async function detectSourceLanguage(sampleText) {
 // eşleşmiyordu. Artık kalıp aramıyoruz: köşeli parantez içinde NE OLURSA OLSUN (boşluklu, rakamlı,
 // harfli, karışık) hepsini atıyoruz — bu motorun kendi iç işaretleyicileri konuşulan dilde asla
 // görünmeyecek bir şey, o yüzden agresif olmak güvenli. Hangi dile çevrilirse çevrilsin aynı şekilde çalışır.
+// Çeviri mantığını (cümle cümle bölme, sayı koruma, sızıntı temizliği) her iyileştirdiğimizde bu sayıyı
+// artırıyoruz — entry.translations önbelleği, hangi sürümle üretildiği bu numarayla eşleşmiyorsa
+// (translateBtn dinleyicisine bkz.) geçersiz sayılıp otomatik yeniden çevriliyor. Bunsuz, önceden bir
+// kere çevrilmiş bir video hep eski (düzeltmeden önceki) çeviriyi göstermeye devam ederdi.
+const TRANSLATION_CACHE_VERSION = 2;
 const LEAKED_TAG_RE = /<[^<>]*>/g;
 function cleanTranslation(text, fallback) {
   if (!text) return fallback;
@@ -1073,7 +1078,11 @@ async function init() {
 
     await chrome.storage.local.set({ [DEFAULT_TRANSLATE_LANG_KEY]: target });
 
-    const cached = entry.translations?.[target];
+    // Önbellek SÜRÜMLÜ: çeviri mantığını (cümle cümle bölme, sayı koruma, vb.) her iyileştirdiğimde bu
+    // sayıyı artırıyorum — eski, bu iyileştirmelerden ÖNCE üretilmiş önbellek otomatik geçersiz sayılıyor.
+    // Bunsuz, bir kullanıcı bir videoyu bir kere çevirip sonra biz motoru düzeltsek bile hep eski (hatalı)
+    // çeviriyi görmeye devam ederdi — "düzelttim" deyip hiçbir şey değişmemiş gibi görünürdü.
+    const cached = entry.translationsVersion === TRANSLATION_CACHE_VERSION ? entry.translations?.[target] : null;
     if (cached && cached.length === blocks.length) {
       applyTexts(cached, target);
       statusEl.textContent = t("translate_done");
@@ -1129,7 +1138,8 @@ async function init() {
       await Promise.all(Array.from({ length: CONCURRENCY }, worker));
       applyTexts(translated, target);
       statusEl.textContent = t("translate_done");
-      entry.translations = { ...(entry.translations || {}), [target]: translated };
+      entry.translations = { ...(entry.translationsVersion === TRANSLATION_CACHE_VERSION ? entry.translations || {} : {}), [target]: translated };
+      entry.translationsVersion = TRANSLATION_CACHE_VERSION;
       await chrome.storage.local.set({ [key]: entry }); // sonraki açılışta tekrar çevirmeye gerek kalmasın
     } catch (e) {
       statusEl.textContent = `${t("translate_error")} ${e.message || e}`;
