@@ -85,6 +85,43 @@ function findSecondaryColumn() {
   return document.querySelector("#secondary #secondary-inner") || document.querySelector("#secondary");
 }
 
+// YouTube'un sağ sütununu bulmak için #secondary/#secondary-inner adlı, YouTube'un KENDİ (belgelenmemiş,
+// önceden haber vermeden değişebilen) bir DOM yapısına bakıyoruz — bu bir gün değişirse kenar paneli hiç
+// yerleşemez. Bunu SESSİZCE kaybolan bir özellik olmaktan çıkarmak için: sütunu birkaç saniye boyunca
+// (SECONDARY_RETRY_LIMIT kere, ~her saniye bir) aramayı deniyoruz; hâlâ bulamazsak "artık bu sayfa
+// yapısı değişmiş" kabul edip, hiçbir YouTube-özel elemente bağımlı OLMAYAN (sadece document.body'ye
+// eklenen, garanti her zaman var olan) küçük bir yedek düğmeye düşüyoruz — o da eski, her zaman çalışan
+// yöntemi (transcript'i yeni sekmede aç) tetikliyor. Böylece özellik YouTube'un sayfası değişse bile
+// TAMAMEN kaybolmuyor, sadece kenar paneli konforunu kaybedip eski davranışa dönüyor.
+const SECONDARY_RETRY_LIMIT = 6;
+const SECONDARY_RETRY_DELAY_MS = 1000;
+const FALLBACK_ID = "skimcast-fallback-btn";
+
+function buildFallbackButton(videoId) {
+  if (document.getElementById(FALLBACK_ID) || document.getElementById(PANEL_ID)) return;
+  const btn = document.createElement("button");
+  btn.id = FALLBACK_ID;
+  btn.textContent = "📝 skimcast";
+  tt("sidebar_fallback_hint", "YouTube's page layout changed and the sidebar panel couldn't attach — click to open the transcript in a new tab instead.")
+    .then((hint) => { btn.title = hint; });
+  btn.addEventListener("click", async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = "…";
+    try {
+      const res = await chrome.runtime.sendMessage({ action: "fetch", url: location.href });
+      if (!res?.ok) throw new Error(res?.error || "?");
+    } catch (e) {
+      btn.title = String(e?.message || e);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+  document.body.appendChild(btn);
+}
+
 async function buildPanelShell() {
   const panel = document.createElement("div");
   panel.id = PANEL_ID;
@@ -140,15 +177,25 @@ function renderIframe(body, videoId) {
 
 // Video değiştiğinde (SPA navigasyonu) paneli o videoya göre yeniden kuruyoruz: arşivde zaten varsa
 // doğrudan iframe, yoksa "Transcript'i Getir" çağrısı. Panelin kendisi (başlık, küçült düğmesi) sabit
-// kalıyor, sadece gövdesi değişiyor.
-async function ensureSidebarPanel(videoId) {
-  if (panelVideoId === videoId && document.getElementById(PANEL_ID)) return;
-  panelVideoId = videoId;
+// kalıyor, sadece gövdesi değişiyor. `attempt`: sağ sütun bulunamadığında kaç kere yeniden denediğimiz —
+// dışarıdan hep 0 ile çağrılır, kendi içinde setTimeout ile kendini artan bir sayaçla tekrar çağırır.
+async function ensureSidebarPanel(videoId, attempt = 0) {
+  if (attempt === 0) {
+    if (panelVideoId === videoId && (document.getElementById(PANEL_ID) || document.getElementById(FALLBACK_ID))) return;
+    panelVideoId = videoId;
+  } else if (panelVideoId !== videoId) {
+    return; // bu deneme zincirinden sonra kullanıcı zaten başka bir videoya geçmiş, boşa devam etme
+  }
 
   let panel = document.getElementById(PANEL_ID);
   if (!panel) {
     const column = findSecondaryColumn();
-    if (!column) { panelVideoId = null; return; } // sayfa henüz tam yüklenmedi, attach() zaten tekrar deneyecek
+    if (!column) {
+      if (attempt + 1 >= SECONDARY_RETRY_LIMIT) { buildFallbackButton(videoId); return; }
+      setTimeout(() => ensureSidebarPanel(videoId, attempt + 1), SECONDARY_RETRY_DELAY_MS);
+      return;
+    }
+    document.getElementById(FALLBACK_ID)?.remove(); // sütun nihayet bulunduysa yedek düğmeye artık gerek yok
     panel = await buildPanelShell();
     column.insertBefore(panel, column.firstChild);
   }

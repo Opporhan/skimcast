@@ -11,6 +11,9 @@
   "sidebar_cta_text": {
     "message": "See this video's searchable, click-to-jump transcript right here."
   },
+  "sidebar_fallback_hint": {
+    "message": "YouTube's page layout changed and the sidebar panel couldn't attach — click to open the transcript in a new tab instead."
+  },
   "ext_description": {
     "message": "Paste a link, get a timestamped transcript — searchable, click-to-jump, ad-skip. YouTube, podcasts, articles. Fully local, no API calls."
   },

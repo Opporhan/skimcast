@@ -11,6 +11,9 @@
   "sidebar_cta_text": {
     "message": "Bu videonun aranabilir, tıkla-git yapılabilir transcript'ini burada gör."
   },
+  "sidebar_fallback_hint": {
+    "message": "YouTube'un sayfa yapısı değişmiş ve kenar paneli yerleşemedi — transcript'i yeni sekmede açmak için tıkla."
+  },
   "ext_description": {
     "message": "Linki yapıştır, zaman damgalı transcript'i al — arayabilir, tıkla-git yapabilir, reklamları atlayabilirsin. YouTube, podcast, makale. Tamamen yerel, hiçbir API'ye gitmez."
   },
