@@ -408,6 +408,7 @@ function noteRowHtml(n) {
       <div class="row-actions">
         <button class="move-note" data-note-id="${escapeHtml(n.id)}" title="${escapeHtml(t("move_to_folder_title"))}">📁</button>
         <button class="edit-note" data-note-id="${escapeHtml(n.id)}" title="${escapeHtml(t("edit_folder_hint"))}">✎</button>
+        <button class="delete-note" data-note-id="${escapeHtml(n.id)}">${t("library_delete")}</button>
       </div>
     </div>`;
 }
@@ -514,7 +515,7 @@ async function init() {
     <section class="notes-section" id="notesSection" hidden>
       <div class="folder-grid">
         <div class="folder-card active">
-          <span class="folder-icon">🗂️</span>
+          <span class="folder-icon">🗒️</span>
           <span class="folder-name">${t("all_folders")}</span>
           <span class="folder-count" id="notesAllCount">0</span>
         </div>
@@ -951,6 +952,15 @@ async function init() {
       const notes = await getNotes();
       await saveNotes(notes.map((x) => (x.id === moveNote.dataset.noteId ? { ...x, folder: result.folder } : x)));
       showToast(result.folder ? `${t("moved_to_folder_toast")} "${result.folder}"` : t("removed_from_folder_toast"));
+      render();
+      return;
+    }
+    // Video satırındaki "Sil" ile aynı: kenarda, doğrudan, onay istemeden — düzenleme paneline girmeden
+    // tek tıkla silme.
+    const deleteNote = e.target.closest(".delete-note");
+    if (deleteNote) {
+      const notes = await getNotes();
+      await saveNotes(notes.filter((x) => x.id !== deleteNote.dataset.noteId));
       render();
     }
   });

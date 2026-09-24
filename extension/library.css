@@ -164,7 +164,7 @@ button:hover { filter: brightness(.96); }
 .row-actions .pin { opacity: .4; border-radius: 50%; width: 26px; height: 26px; padding: 0; text-align: center; }
 .row-actions .pin.pinned { opacity: 1; background: var(--accent-soft); }
 .row.pinned-row { border-color: var(--accent); }
-.row-actions .delete:hover { color: #d70015; }
+.row-actions .delete:hover, .row-actions .delete-note:hover { color: #d70015; }
 
 .fav-row .snippet { color: var(--text); font-size: 14px; }
 .mini-tag { font-size: 11px; color: var(--accent); background: var(--accent-soft); border-radius: 8px; padding: 1px 7px; }
