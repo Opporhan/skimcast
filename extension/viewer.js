@@ -127,14 +127,18 @@ async function detectSourceLanguage(sampleText) {
 // iç işaretleyicilerini sızdırabiliyor (bilinen bir model tuhaflığı, hangi dilden hangi dile olursa
 // olsun görülebiliyor). Bunları temizliyoruz; temizlik sonrası metin boş kalırsa (tamamen sızıntıdan
 // ibaretse) orijinal metne düşüyoruz — hiçbir zaman bozuk/anlamsız bir çıktı gösterilmiyor.
-const LEAKED_TAG_RE = /<\/?[a-zA-Z][a-zA-Z0-9]*\/?>/g;
+// Önceki regex ("<b9000>", "</b900>" gibi harf+rakam etiket sanıp) sadece belirli bir kalıba uyan
+// sızıntıları yakalıyordu — kullanıcı "< / b9000>" gibi ARADA BOŞLUK olan bir varyant bildirdi, o hiç
+// eşleşmiyordu. Artık kalıp aramıyoruz: köşeli parantez içinde NE OLURSA OLSUN (boşluklu, rakamlı,
+// harfli, karışık) hepsini atıyoruz — bu motorun kendi iç işaretleyicileri konuşulan dilde asla
+// görünmeyecek bir şey, o yüzden agresif olmak güvenli. Hangi dile çevrilirse çevrilsin aynı şekilde çalışır.
+const LEAKED_TAG_RE = /<[^<>]*>/g;
 function cleanTranslation(text, fallback) {
   if (!text) return fallback;
   let cleaned = text.replace(LEAKED_TAG_RE, "");
-  // ">>" tek bir kalıba uymuyor — bazen "> >", bazen ">>>>" şeklinde sızıyor. Önceki tek regex bunların
-  // hepsini yakalamıyordu; kelime kelime ayırıp tamamen ">" karakterlerinden ibaret olan parçaları atmak
-  // (kaç tane ve nasıl boşluklu olursa olsun) daha güvenilir.
-  cleaned = cleaned.split(/\s+/).filter((tok) => tok && !/^>+$/.test(tok)).join(" ").trim();
+  // Eşleşmeyen tek "<" ya da ">" karakterlerinden ibaret parçalar da (kaç tane/boşluklu olursa olsun)
+  // gerçek sızıntı — kelime kelime ayırıp tamamen bu karakterlerden oluşan token'ları atıyoruz.
+  cleaned = cleaned.split(/\s+/).filter((tok) => tok && !/^[<>]+$/.test(tok)).join(" ").trim();
   return cleaned || fallback;
 }
 
