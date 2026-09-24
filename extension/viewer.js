@@ -134,6 +134,23 @@ function splitSentences(text) {
   return parts ? parts.map((s) => s.trim()).filter(Boolean) : [text];
 }
 
+// Sayılar (özellikle iki tane yakın sayı olunca, ör. "160'tan 180'e") küçük çeviri modeli tarafından
+// "dil bilgisi" gibi işlenip yuvarlanabiliyor/atlanabiliyor — bir sayı gerçek bir kelime değil, OLDUĞU
+// GİBİ kalması gereken bir değer. Çevirmeden önce her sayıyı, modelin "çeviri" diye bir şey yapmayacağı
+// düz bir yer tutucuyla (⟦0⟧, ⟦1⟧…) değiştirip, çeviri bittikten sonra ORİJİNAL sayı metnini (birebir,
+// biçimlendirmesi/ondalığı bozulmadan) geri koyuyoruz — model hiç "görmediği" için değiştiremiyor/atlayamıyor.
+function protectNumbers(text) {
+  const numbers = [];
+  const protectedText = text.replace(/\d[\d.,]*\d|\d/g, (m) => {
+    numbers.push(m);
+    return `⟦${numbers.length - 1}⟧`;
+  });
+  return { protectedText, numbers };
+}
+function restoreNumbers(text, numbers) {
+  return text.replace(/⟦(\d+)⟧/g, (m, idx) => numbers[Number(idx)] ?? m);
+}
+
 async function detectSourceLanguage(sampleText) {
   if (typeof LanguageDetector === "undefined") return null;
   try {
@@ -1091,8 +1108,11 @@ async function init() {
           const translatedParts = [];
           for (const sentence of sentences) {
             try {
-              const raw = await translator.translate(sentence);
-              translatedParts.push(cleanTranslation(raw, sentence));
+              const { protectedText, numbers } = protectNumbers(sentence);
+              const raw = await translator.translate(protectedText);
+              let cleaned = cleanTranslation(raw, protectedText);
+              if (numbers.length) cleaned = restoreNumbers(cleaned, numbers);
+              translatedParts.push(cleaned);
             } catch {
               // Tek bir cümlede çeviri motoru hata verirse tüm bloğu iptal etmek yerine o cümleyi
               // orijinal haliyle bırakıp devam ediyoruz.
