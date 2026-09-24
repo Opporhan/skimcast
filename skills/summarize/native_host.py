@@ -53,6 +53,37 @@ def send_message(obj) -> None:
     sys.stdout.buffer.flush()
 
 
+# transcript.py'nin to_blocks()'uyla AYNI ~30sn'lik birleştirme mantığının bir KOPYASI — transcript.py'ye
+# (Claude Code plugin'iyle PAYLAŞILIYOR) dokunmuyoruz. Tek fark: her gösterim bloğunun içine giren HAM
+# (ince taneli, YouTube'un kendi altyazı parçası başına bir tane) segmentleri de ayrıca saklıyoruz.
+# Bunlar olmadan "videoyla senkron takip" bir bloğun (~30sn, birden fazla cümle) içindeki bir kelimenin
+# yerini KABACA tahmin etmek zorunda kalıyordu — araya bir müzik/sessizlik girdiğinde bu tahmin anlamsız
+# hale geliyordu ("araya müzik girince devam ediyor" şikayeti buradan geliyordu). Artık her kelime
+# grubunun GERÇEK başlangıç saniyesi var; senkron, hangi ince segmentin o an okunduğunu tam olarak biliyor.
+def blocks_with_words(segments, block_seconds=30):
+    blocks = []
+    start, buf_text, buf_words = None, [], []
+
+    def flush():
+        if buf_text:
+            blocks.append({"sec": start, "text": " ".join(buf_text), "words": buf_words[:]})
+
+    for t, text in segments:
+        text = " ".join(str(text).split())
+        if not text:
+            continue
+        if start is None:
+            start = t
+        buf_text.append(text)
+        buf_words.append([t, text])
+        span = t - start
+        if span >= block_seconds and (text[-1] in ".!?…" or span >= 2 * block_seconds):
+            flush()
+            start, buf_text, buf_words = None, [], []
+    flush()
+    return blocks
+
+
 def main() -> None:
     try:
         import trafilatura  # noqa: F401
@@ -71,8 +102,23 @@ def main() -> None:
         return
     langs = [x.strip().split("-")[0] for x in msg.get("lang", "tr,en").split(",") if x.strip()]
     try:
-        meta, text = tr.load(msg["url"], langs, "small", 0)
-        send_message({"ok": True, "meta": meta, "text": text})
+        # tr.load() (disk önbelleği + parça dosyalarına bölme) yerine doğrudan get_transcript(): önbellek
+        # sadece BLOKLANMIŞ metni tutuyor, kelime kelime senkron için gereken ince taneli zaman damgalarını
+        # değil. Bedeli: aynı video tekrar getirilirse önbellekten değil, ağdan gelir — kabul edilebilir
+        # (uzantının kendi arşivi zaten aynı videoyu gereksiz yere tekrar getirmeyi önlüyor).
+        t = tr.get_transcript(msg["url"], langs, "small", 0)
+        if t.timestamps:
+            blocks = blocks_with_words(t.segments)
+            text = "\n".join(f"[{tr.fmt_time(b['sec'])}] {b['text']}" for b in blocks)
+        else:
+            blocks = []
+            text = t.segments[0][1] if t.segments else ""
+        meta = {
+            "title": t.title, "method": t.method,
+            "duration": tr.fmt_time(t.duration) if t.duration else "",
+            "link_prefix": t.link_prefix,
+        }
+        send_message({"ok": True, "meta": meta, "text": text, "blocks": blocks})
     except tr.SkimError as e:
         send_message({"ok": False, "error": str(e)})
     except Exception as e:  # noqa: BLE001 - uzantıya traceback yerine kısa mesaj dön

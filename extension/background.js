@@ -84,7 +84,7 @@ function fromYoutube(url, langs) {
         reject(new SkimError(response?.error || "Yerel yardımcı programdan yanıt alınamadı."));
         return;
       }
-      resolve({ native: true, meta: response.meta, text: response.text });
+      resolve({ native: true, meta: response.meta, text: response.text, rawBlocks: response.blocks });
     });
   });
 }
@@ -332,13 +332,31 @@ async function saveToArchive(id, url, meta, blocks) {
 // ortasında Chrome tarafından sonlandırılması bütün geceyi almıştı) — transcript alma saniyeler
 // sürdüğü için servis çalışanının ömrüyle ilgili bir risk de yok.
 // Hem popup'tan (mesajla) hem sağ tık menüsünden çağrıldığı için ortak bir fonksiyona çıkarıldı.
+// native_host.py (YouTube), gösterim bloğuna (~30sn) ek olarak İÇİNE giren HAM, ince taneli altyazı
+// parçalarını da yolluyor (block.words) — kelime kelime videoyla senkron takip bunları kullanıyor.
+// parseTimedBlocks() gibi "(müzik)" vb. konuşma-olmayan etiketleri hem bloğun hem her kelime grubunun
+// metninden temizliyoruz; tamamen etiketten ibaret olan kelime grupları (ya da bloklar) atlanıyor.
+function blocksFromNative(rawBlocks) {
+  const blocks = [];
+  for (const b of rawBlocks || []) {
+    const cleanedText = stripNonSpeech(b.text);
+    if (!cleanedText) continue;
+    const words = (b.words || [])
+      .map(([sec, text]) => ({ sec, text: stripNonSpeech(text) }))
+      .filter((w) => w.text);
+    blocks.push({ sec: b.sec, text: cleanedText, words });
+  }
+  return blocks;
+}
+
 async function fetchAndOpen(url) {
   const t = await getTranscript(url, ["tr", "en"]);
   const meta = t.native
     ? { title: t.meta.title, method: t.meta.method, duration: t.meta.duration, linkPrefix: t.meta.link_prefix }
     : { title: t.title, method: t.method, duration: t.duration ? fmtTime(t.duration) : "", linkPrefix: t.linkPrefix };
-  const text = t.native ? t.text : buildTranscriptText(t);
-  const blocks = parseTimedBlocks(text);
+  const blocks = t.native && Array.isArray(t.rawBlocks) && t.rawBlocks.length
+    ? blocksFromNative(t.rawBlocks)
+    : parseTimedBlocks(t.native ? t.text : buildTranscriptText(t));
 
   const id = stableId(url);
   const ytId = youtubeId(url);

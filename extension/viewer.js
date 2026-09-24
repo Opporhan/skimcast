@@ -501,10 +501,33 @@ async function init() {
         activateWordTracking(rows[idx], state.texts[idx]);
         rows[idx].scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      // Kelime kelime YAKLAŞIK takip: YouTube'dan kelime bazlı zamanlama almıyoruz (transcript'te sadece
-      // bloğun başladığı saniye var) — bu yüzden bir sonraki bloğun başladığı ana kadar geçen süreye
-      // oranla kelimenin yaklaşık nerede olduğunu tahmin ediyoruz. Sesli okumadaki gibi kesin değil ama
-      // konuşma hızına yakın, göz için yeterince akıcı bir "takip ediyor" hissi veriyor.
+      // Kelime kelime takip. Bu blok native_host.py'den (YouTube) geldiyse blocks[idx].words var — bloğu
+      // oluşturan HAM, ince taneli altyazı parçalarının (her biri kendi GERÇEK başlama saniyesiyle) listesi.
+      // O an hangi parçanın okunduğunu TAM olarak buluyoruz (araya müzik/sessizlik girse bile yanlış yere
+      // atlamıyor — o parçanın son kelimesinde bekliyor), parça İÇİNDE kelimeyi de kendi (çok daha kısa,
+      // ~2-5sn) süresine oranlayarak buluyoruz — önceki, bloğun TAMAMINA (~30-60sn) yayılan kaba tahminden
+      // çok daha isabetli. Çeviri gösterilirken (state.lang !== null) parçaların metni orijinal dilde
+      // kaldığı için kelime sayısı/sırası eşleşmez — o durumda ve eski/podcast kayıtlarda (words yok)
+      // eski, bloğun tamamına yayılan kaba tahmine düşüyoruz.
+      const rawWords = blocks[idx].words;
+      if (rawWords?.length && state.lang === null) {
+        let wIdx = -1;
+        for (let i = 0; i < rawWords.length; i++) {
+          if (rawWords[i].sec <= currentTime) wIdx = i; else break;
+        }
+        if (wIdx !== -1) {
+          const cue = rawWords[wIdx];
+          const cueWords = cue.text.split(/\s+/).filter(Boolean);
+          let startWordIdx = 0;
+          for (let i = 0; i < wIdx; i++) startWordIdx += rawWords[i].text.split(/\s+/).filter(Boolean).length;
+          const nextCueSec = rawWords[wIdx + 1]?.sec;
+          const cueDur = nextCueSec != null ? Math.max(nextCueSec - cue.sec, 0.5) : 2;
+          const progress = Math.min(Math.max((currentTime - cue.sec) / cueDur, 0), 1);
+          const withinIdx = Math.min(Math.floor(progress * cueWords.length), cueWords.length - 1);
+          highlightWord(rows[idx], startWordIdx + withinIdx);
+        }
+        return;
+      }
       const text = state.texts[idx];
       const wordCount = text.split(/\s+/).filter(Boolean).length;
       if (wordCount > 0) {
