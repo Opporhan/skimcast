@@ -39,3 +39,9 @@ terk edildi (bkz. git geçmişi); bunun yerine sağlam çalışan transcript-çe
 - Testler: `extension/test.mjs` (saf mantık fonksiyonları) — `node extension/test.mjs`.
 - İki ürün arasında kod paylaşımı yok; `skills/summarize/native_host.py` sadece extension'ın YouTube
   transcript kaynağı olarak kullanılıyor, Claude'a hiç istek atmıyor.
+- **TUZAK:** `extension/` klasöründe (ya da içindeki bir dosyayı hedefleyerek) `python3 -m py_compile`
+  veya benzeri bytecode-üreten bir komut ÇALIŞTIRMA — `extension/__pycache__/` oluşturur, Chrome/Edge
+  "_" ile başlayan dosya/klasör adlarını reddettiği için uzantı hiç yüklenemez ("Cannot load extension
+  with file or directory name __pycache__"). Bir kere gerçekten oldu, kullanıcı "uzantı görünmüyor"
+  diye şaşırdı. Python syntax kontrolü gerekiyorsa `python3 -c "compile(open('dosya').read(), 'x', 'exec')"`
+  kullan (bytecode dosyaya yazmaz), ya da işi bitince `rm -rf extension/__pycache__` çalıştır.
