@@ -37,7 +37,17 @@ function jumpUrl(meta, sec) {
   return meta.linkPrefix && sec != null ? `${meta.linkPrefix}${Math.floor(sec)}` : null;
 }
 
-function openInTab(url) {
+// YouTube kenar panelinde (bkz. youtube_sync.js) bir iframe içinde çalışırken, video zaten aynı sayfada
+// oynuyor — bir zaman damgasına tıklayınca yeni sekme açmak yerine üst pencereye (YouTube sayfasının
+// kendisine) postMessage ile "şu saniyeye atla" diyoruz, o da gerçek <video> elementini oraya sarıyor.
+// Bağımsız bir sekmede (embedded değilken) eskisi gibi videoyu yeni sekmede o zamandan açıyoruz.
+const isEmbedded = window !== window.top;
+
+function jumpTo(url, sec) {
+  if (isEmbedded && sec != null) {
+    window.parent.postMessage({ type: "skimcast-seek", sec }, "*");
+    return;
+  }
   chrome.tabs.create({ url, active: true });
 }
 
@@ -168,7 +178,7 @@ async function init() {
   app.innerHTML = `
     <header>
       <div class="header-top">
-        <a class="back" href="library.html">${t("library_link")}</a>
+        <a class="back" href="library.html"${isEmbedded ? ' target="_blank"' : ""}>${t("library_link")}</a>
         <div class="header-btns">
           <button id="langBtn" class="theme-btn" title="Language"></button>
           <button id="themeBtn" class="theme-btn" title="${escapeHtml(t("theme_btn"))}"></button>
@@ -384,7 +394,7 @@ async function init() {
       time.className = "time";
       time.textContent = fmtTime(b.sec);
       const url = jumpUrl(meta, b.sec);
-      if (url) time.addEventListener("click", () => openInTab(url));
+      if (url) time.addEventListener("click", () => jumpTo(url, b.sec));
       row.appendChild(time);
     }
 
@@ -400,12 +410,13 @@ async function init() {
       row.appendChild(badge);
 
       const next = blocks.slice(i + 1).find((n) => n.sec != null);
-      const skipUrl = jumpUrl(meta, next ? next.sec : b.sec);
+      const skipSec = next ? next.sec : b.sec;
+      const skipUrl = jumpUrl(meta, skipSec);
       if (skipUrl) {
         const skip = document.createElement("button");
         skip.className = "ad-skip";
         skip.textContent = t("ad_skip");
-        skip.addEventListener("click", () => openInTab(skipUrl));
+        skip.addEventListener("click", () => jumpTo(skipUrl, skipSec));
         row.appendChild(skip);
       }
     }
@@ -585,6 +596,10 @@ async function init() {
     window.addEventListener("beforeunload", () => {
       if (syncOn) chrome.runtime.sendMessage({ type: "skimcast-register-viewer", videoId: null }).catch(() => {});
     });
+
+    // YouTube kenar panelinde (iframe içinde) açıkken senkron takibin zaten AMACI bu — elle "🔗"ye
+    // basmaya gerek yok, video zaten hemen yanında oynuyor.
+    if (isEmbedded) syncBtn.click();
   }
 
   function applyFilters() {

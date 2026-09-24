@@ -5,6 +5,12 @@
   "context_menu_fetch": {
     "message": "skimcast: Get Transcript"
   },
+  "sidebar_collapse_hint": {
+    "message": "Collapse"
+  },
+  "sidebar_cta_text": {
+    "message": "See this video's searchable, click-to-jump transcript right here."
+  },
   "ext_description": {
     "message": "Paste a link, get a timestamped transcript — searchable, click-to-jump, ad-skip. YouTube, podcasts, articles. Fully local, no API calls."
   },

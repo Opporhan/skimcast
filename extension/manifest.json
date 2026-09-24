@@ -22,7 +22,14 @@
     {
       "matches": ["https://www.youtube.com/*"],
       "js": ["youtube_sync.js"],
+      "css": ["youtube_sidebar.css"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["viewer.html"],
+      "matches": ["https://www.youtube.com/*"]
     }
   ]
 }

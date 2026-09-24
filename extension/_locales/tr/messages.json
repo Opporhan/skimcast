@@ -5,6 +5,12 @@
   "context_menu_fetch": {
     "message": "skimcast: Transcript'i Getir"
   },
+  "sidebar_collapse_hint": {
+    "message": "Küçült"
+  },
+  "sidebar_cta_text": {
+    "message": "Bu videonun aranabilir, tıkla-git yapılabilir transcript'ini burada gör."
+  },
   "ext_description": {
     "message": "Linki yapıştır, zaman damgalı transcript'i al — arayabilir, tıkla-git yapabilir, reklamları atlayabilirsin. YouTube, podcast, makale. Tamamen yerel, hiçbir API'ye gitmez."
   },

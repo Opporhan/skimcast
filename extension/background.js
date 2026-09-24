@@ -349,7 +349,10 @@ function blocksFromNative(rawBlocks) {
   return blocks;
 }
 
-async function fetchAndOpen(url) {
+// Sadece getirip arşive kaydeder, hiçbir sekme AÇMAZ — YouTube kenar paneli (youtube_sync.js) buradan
+// çağırıyor: video zaten aynı sayfada oynuyor, yeni bir sekmeye gerek yok, panel kendi içine (iframe)
+// yükleyecek.
+async function fetchOnly(url) {
   const t = await getTranscript(url, ["tr", "en"]);
   const meta = t.native
     ? { title: t.meta.title, method: t.meta.method, duration: t.meta.duration, linkPrefix: t.meta.link_prefix }
@@ -365,6 +368,11 @@ async function fetchAndOpen(url) {
     if (chapters) meta.chapters = chapters;
   }
   await saveToArchive(id, url, meta, blocks);
+  return { id, meta };
+}
+
+async function fetchAndOpen(url) {
+  const { id, meta } = await fetchOnly(url);
   chrome.tabs.create({ url: chrome.runtime.getURL(`viewer.html?id=${encodeURIComponent(id)}`) });
   return meta;
 }
@@ -407,6 +415,23 @@ chrome.runtime.onMessage.addListener((msg, sender) => {
 });
 
 chrome.tabs.onRemoved.addListener((tabId) => { syncViewerTabs.delete(tabId); });
+
+// ---------------------------------------------------------------- YouTube kenar paneli (sessiz getirme)
+// youtube_sync.js, izlenen videonun transcript'i arşivde yoksa (kenar panelindeki "Transcript'i Getir"
+// düğmesine basıldığında) bunu çağırır — fetchAndOpen'dan farkı: hiçbir sekme açmaz, sadece getirip
+// arşive kaydeder; panel sonra kendi içine (iframe) yükler.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.type !== "skimcast-fetch-silent") return;
+  (async () => {
+    try {
+      const { id } = await fetchOnly(msg.url);
+      sendResponse({ ok: true, id });
+    } catch (e) {
+      sendResponse({ ok: false, error: e instanceof SkimError ? e.message : `Beklenmeyen hata: ${e.message || e}` });
+    }
+  })();
+  return true;
+});
 
 // ---------------------------------------------------------------- sağ tık menüsü
 // Popup'ı açıp linki yapıştırmaya gerek kalmadan, bir videoya/linke sağ tıklayıp doğrudan getirmek için.
