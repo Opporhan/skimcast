@@ -124,6 +124,16 @@ const TRANSLATE_LANGS = [
   { code: "ru", label: "Русский" },
 ];
 
+// Bloklar (transcript'in gösterim birimi) ~30-60 saniyelik, genelde birden fazla cümleden oluşan
+// metinler — cihaz üzerindeki çeviri modeline TEK SEFERDE koca bir blok vermek (özellikle sayı, isim
+// gibi ayrıntıları) atlamasına/yanlış söylemesine yol açabiliyor: model uzun girdilerde özetleme
+// eğilimine kayabiliyor. Her CÜMLEYİ ayrı ayrı çevirip birleştirmek, modelin her seferinde küçük, tam
+// bir birim üzerinde çalışmasını sağlıyor — orijinal anlama daha sadık, daha eksiksiz bir çeviri.
+function splitSentences(text) {
+  const parts = text.match(/[^.!?…]+[.!?…]+(?:\s+|$)|[^.!?…]+$/g);
+  return parts ? parts.map((s) => s.trim()).filter(Boolean) : [text];
+}
+
 async function detectSourceLanguage(sampleText) {
   if (typeof LanguageDetector === "undefined") return null;
   try {
@@ -1075,14 +1085,21 @@ async function init() {
       async function worker() {
         while (nextIndex < blocks.length) {
           const i = nextIndex++;
-          try {
-            const raw = await translator.translate(blocks[i].text);
-            translated[i] = cleanTranslation(raw, blocks[i].text);
-          } catch {
-            // Tek bir cümlede çeviri motoru hata verirse (nadiren olabiliyor) tüm işlemi iptal etmek
-            // yerine o cümleyi orijinal haliyle bırakıp devam ediyoruz.
-            translated[i] = blocks[i].text;
+          // Bloğu CÜMLE CÜMLE çeviriyoruz (yukarıdaki splitSentences notuna bkz.) — sırayla, aynı
+          // translator oturumuyla; her cümlede ayrı ayrı hata toleransı var.
+          const sentences = splitSentences(blocks[i].text);
+          const translatedParts = [];
+          for (const sentence of sentences) {
+            try {
+              const raw = await translator.translate(sentence);
+              translatedParts.push(cleanTranslation(raw, sentence));
+            } catch {
+              // Tek bir cümlede çeviri motoru hata verirse tüm bloğu iptal etmek yerine o cümleyi
+              // orijinal haliyle bırakıp devam ediyoruz.
+              translatedParts.push(sentence);
+            }
           }
+          translated[i] = translatedParts.join(" ");
           completed++;
           statusEl.textContent = `${t("translate_progress")} ${completed}/${blocks.length}`;
           rows[i].querySelector(".text").textContent = translated[i];
