@@ -700,6 +700,42 @@ async function init() {
     rows.find((row) => row.style.display !== "none")?.scrollIntoView({ block: "center" });
   }
 
+  // ------------------------------------------------------------ kaldığın yerden devam et
+  // Arama sorgusuyla açılmadıysan, en son nereye kadar okuduğunu hatırlayıp oraya kaydırıyoruz —
+  // kütüphanedeki "Devam Et" rozetiyle AYNI veriyi (entry.lastReadIndex) kullanıyor. Kaydırma
+  // pozisyonunu periyodik (debounce'lu) kaydediyoruz; en baştaysan ya da sona geldiysen "devam etmenin"
+  // bir anlamı yok, ilerlemeyi o durumda temizliyoruz. Kütüphanenin (her videoyu tek tek açmadan "devam
+  // et" gösterebilmesi için) hafif dizinine (skimcastArchiveIndex) da bir yüzde aynası bırakıyoruz.
+  if (!initialQuery && entry.lastReadIndex != null && rows[entry.lastReadIndex]) {
+    rows[entry.lastReadIndex].scrollIntoView({ block: "center" });
+    showToast(t("resume_toast"));
+  }
+
+  function currentTopRowIndex() {
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].style.display === "none") continue;
+      if (rows[i].getBoundingClientRect().bottom > 80) return i;
+    }
+    return rows.length - 1;
+  }
+
+  let progressSaveTimer = null;
+  window.addEventListener("scroll", () => {
+    clearTimeout(progressSaveTimer);
+    progressSaveTimer = setTimeout(async () => {
+      const idx = currentTopRowIndex();
+      const meaningful = idx > 0 && idx < rows.length - 2;
+      entry.lastReadIndex = meaningful ? idx : undefined;
+      entry.lastReadTs = meaningful ? Date.now() : undefined;
+      await persistHighlights();
+      const progressPercent = meaningful ? Math.round((idx / (rows.length - 1)) * 100) : undefined;
+      const { skimcastArchiveIndex: idxList = [] } = await chrome.storage.local.get("skimcastArchiveIndex");
+      await chrome.storage.local.set({
+        skimcastArchiveIndex: idxList.map((e) => (e.id === id ? { ...e, progressPercent } : e)),
+      });
+    }, 1200);
+  }, { passive: true });
+
   // ------------------------------------------------------------ kopyala / indir
   const copyBtn = document.getElementById("copyBtn");
   copyBtn.addEventListener("click", async () => {

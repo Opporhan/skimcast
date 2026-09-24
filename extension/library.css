@@ -152,6 +152,15 @@ button:hover { filter: brightness(.96); }
   border-radius: 7px; background: var(--bg-subtle); color: var(--text-muted);
 }
 
+/* "Kaldığın yerden devam et" rozeti — video kaç yere kadar okundu/dinlendi, tıklayınca oraya götürür. */
+.resume-badge {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; text-decoration: none;
+  color: var(--accent); font-size: 12px; font-weight: 600;
+}
+.resume-badge:hover { text-decoration: underline; }
+.resume-bar { width: 40px; height: 4px; border-radius: 2px; background: var(--bg-subtle); overflow: hidden; }
+.resume-bar-fill { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+
 .snippet-edit {
   width: 100%; margin-top: 6px; padding: 8px 10px; border: none; border-radius: 8px;
   background: var(--bg-subtle); color: var(--text); font: inherit; font-size: 13px; resize: vertical; min-height: 60px;

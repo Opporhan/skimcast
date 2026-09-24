@@ -166,6 +166,18 @@ function folderSelectHtml(e, folders) {
   return `<select class="folder-select" data-id="${escapeHtml(e.id)}">${options.join("")}</select>`;
 }
 
+// "Kaldığın yerden devam et": e.progressPercent viewer.js tarafından (kaydırma pozisyonuna göre,
+// debounce'lu) bırakılıyor — burada sadece okuyup küçük bir rozet + ilerleme çubuğu olarak gösteriyoruz.
+// %0 ya da hiç ayarlanmamışsa (henüz hiç açılmamış/en baştaysa) hiçbir şey göstermiyoruz.
+function progressBadgeHtml(e) {
+  if (!e.progressPercent) return "";
+  return `
+    <a class="resume-badge" href="viewer.html?id=${encodeURIComponent(e.id)}" title="${escapeHtml(t("resume_badge"))} (${e.progressPercent}%)">
+      <span class="resume-bar"><span class="resume-bar-fill" style="width:${e.progressPercent}%"></span></span>
+      <span>${escapeHtml(t("resume_badge"))}</span>
+    </a>`;
+}
+
 function entryRowHtml(e, folders) {
   const metaLine = [e.method, e.duration].filter(Boolean).join(" · ");
   return `
@@ -174,6 +186,7 @@ function entryRowHtml(e, folders) {
         <a class="title" href="viewer.html?id=${encodeURIComponent(e.id)}">${escapeHtml(e.title || "(başlıksız)")}</a>
         <div class="row-meta">${escapeHtml(metaLine)} · ${escapeHtml(relativeDate(e.ts))}</div>
         ${folderSelectHtml(e, folders)}
+        ${progressBadgeHtml(e)}
       </div>
       <div class="row-actions">
         <button class="pin${e.pinned ? " pinned" : ""}" data-id="${escapeHtml(e.id)}" title="${escapeHtml(t("pin_hint"))}">📌</button>
