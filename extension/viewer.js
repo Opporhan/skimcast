@@ -504,27 +504,36 @@ async function init() {
       // Kelime kelime takip. Bu blok native_host.py'den (YouTube) geldiyse blocks[idx].words var — bloğu
       // oluşturan HAM, ince taneli altyazı parçalarının (her biri kendi GERÇEK başlama saniyesiyle) listesi.
       // O an hangi parçanın okunduğunu TAM olarak buluyoruz (araya müzik/sessizlik girse bile yanlış yere
-      // atlamıyor — o parçanın son kelimesinde bekliyor), parça İÇİNDE kelimeyi de kendi (çok daha kısa,
-      // ~2-5sn) süresine oranlayarak buluyoruz — önceki, bloğun TAMAMINA (~30-60sn) yayılan kaba tahminden
-      // çok daha isabetli. Çeviri gösterilirken (state.lang !== null) parçaların metni orijinal dilde
-      // kaldığı için kelime sayısı/sırası eşleşmez — o durumda ve eski/podcast kayıtlarda (words yok)
-      // eski, bloğun tamamına yayılan kaba tahmine düşüyoruz.
+      // atlamıyor — o parçanın son kelimesinde bekliyor).
+      //
+      // Çeviri gösterilirken (İngilizce video, Türkçe okuyorsun gibi) ekrandaki kelimeler ARTIK orijinal
+      // parçalarla birebir eşleşmiyor (çeviri kelimeleri yeniden sıralayıp birleştirebiliyor) — bu yüzden
+      // çevrilmiş metni parçaların kelime SAYISI ORANINA göre aynı sayıda gruba bölüyoruz (parça 1 kaynak
+      // metnin %20'siyse, çevrilmiş metnin de ~%20'sini kapsıyor) ve o grup içinde ilerliyoruz. Birebir
+      // kelime hizalaması değil ama dil ne olursa olsun ORİJİNAL sesin GERÇEK zamanlamasına göre akıyor —
+      // önceki sürümde çeviri, orijinalin gerisinde kalıyordu çünkü tüm bloğa (30-60sn) kaba bir tahminle
+      // yayılıyordu; artık her dilde aynı, çok daha dar (~2-5sn) aralıkta takip ediyor.
       const rawWords = blocks[idx].words;
-      if (rawWords?.length && state.lang === null) {
+      if (rawWords?.length) {
         let wIdx = -1;
         for (let i = 0; i < rawWords.length; i++) {
           if (rawWords[i].sec <= currentTime) wIdx = i; else break;
         }
         if (wIdx !== -1) {
           const cue = rawWords[wIdx];
-          const cueWords = cue.text.split(/\s+/).filter(Boolean);
-          let startWordIdx = 0;
-          for (let i = 0; i < wIdx; i++) startWordIdx += rawWords[i].text.split(/\s+/).filter(Boolean).length;
           const nextCueSec = rawWords[wIdx + 1]?.sec;
           const cueDur = nextCueSec != null ? Math.max(nextCueSec - cue.sec, 0.5) : 2;
-          const progress = Math.min(Math.max((currentTime - cue.sec) / cueDur, 0), 1);
-          const withinIdx = Math.min(Math.floor(progress * cueWords.length), cueWords.length - 1);
-          highlightWord(rows[idx], startWordIdx + withinIdx);
+          const withinProgress = Math.min(Math.max((currentTime - cue.sec) / cueDur, 0), 1);
+
+          const displayWordCount = state.texts[idx].split(/\s+/).filter(Boolean).length;
+          const cueWordCounts = rawWords.map((c) => c.text.split(/\s+/).filter(Boolean).length);
+          const totalSourceWords = cueWordCounts.reduce((a, b) => a + b, 0) || 1;
+          const sourceWordsBefore = cueWordCounts.slice(0, wIdx).reduce((a, b) => a + b, 0);
+          const startDisplayIdx = Math.round((sourceWordsBefore / totalSourceWords) * displayWordCount);
+          const endDisplayIdx = Math.round(((sourceWordsBefore + cueWordCounts[wIdx]) / totalSourceWords) * displayWordCount);
+          const groupLen = Math.max(endDisplayIdx - startDisplayIdx, 1);
+          const withinIdx = Math.min(Math.floor(withinProgress * groupLen), groupLen - 1);
+          highlightWord(rows[idx], startDisplayIdx + withinIdx);
         }
         return;
       }
