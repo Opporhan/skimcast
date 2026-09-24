@@ -61,7 +61,7 @@ skimcast bir [MCP](https://modelcontextprotocol.io) sunucusu da içerir; Claude 
 
 ## Tarayıcı uzantısı
 
-`extension/` bu depoda ayrı, kendi başına bir ürün: herhangi bir YouTube videosunu, podcast bölümünü ya da makaleyi aranabilir, tıkla-git yapılabilir bir transcript'e çeviren bir Chrome/Edge uzantısı — özet yok, LLM yok, API anahtarı yok, hiçbir şey tarayıcından dışarı çıkmıyor.
+`extension/` bu depoda ayrı, kendi başına bir ürün: herhangi bir YouTube videosunu, podcast bölümünü ya da makaleyi aranabilir, tıkla-git yapılabilir bir transcript'e çeviren bir Chrome/Edge uzantısı — özet yok, LLM yok, API anahtarı yok. Her şey (kütüphane, notlar, çeviri, sesli okuma) cihazında çalışır; tek istisna YouTube videosunun transcript'ini çekme adımı — bunu barındırılan küçük bir sunucu üzerinden yapıyoruz (bkz. `server/`), çünkü YouTube bu isteği tarayıcıdan doğrudan engelliyor; senin tarafında hiçbir kurulum gerekmiyor.
 
 ```
 Bir videoya sağ tıkla (ya da popup'a linki yapıştır) → transcript yeni bir sekmede açılır
@@ -79,11 +79,10 @@ Bir videoya sağ tıkla (ya da popup'a linki yapıştır) → transcript yeni bi
 
 ### Kurulum (paketlenmemiş, mağazada değil)
 
-1. Yerel yardımcı programı kaydet (tek seferlik; uzantının YouTube altyazılarını YouTube'un bot korumasına takılmadan okuyabilmesi için): `python3 extension/install_native_host.py` (**Windows'ta `python3` değil `python` yaz** — o komut orada genelde yok; önce Python 3'ü kurman gerekiyor, kurulumda "Add python.exe to PATH" kutucuğunu işaretle)
-2. `chrome://extensions` (ya da `edge://extensions`) aç, **Geliştirici modu**'nu aç, **Paketlenmemiş öğe yükle**'ye tıkla, `extension/` klasörünü seç.
-3. Herhangi bir YouTube/podcast/makale sayfasında araç çubuğu simgesine tıkla, ya da sayfaya sağ tıklayıp **skimcast: Transcript'i Getir**'i seç.
+1. `chrome://extensions` (ya da `edge://extensions`) aç, **Geliştirici modu**'nu aç, **Paketlenmemiş öğe yükle**'ye tıkla, `extension/` klasörünü seç.
+2. Herhangi bir YouTube/podcast/makale sayfasında araç çubuğu simgesine tıkla, ya da sayfaya sağ tıklayıp **skimcast: Transcript'i Getir**'i seç.
 
-Bu, yukarıdaki Claude Code plugin'inden ayrı bir kod tabanı — uzantı hiçbir zaman Claude'a ya da bir LLM'e istek atmaz; plugin de tarayıcıya hiç dokunmaz.
+Python yok, yerel kurulum yok — sadece klasörü yükle. Bu, yukarıdaki Claude Code plugin'inden ayrı bir kod tabanı — uzantı hiçbir zaman Claude'a ya da bir LLM'e istek atmaz; plugin de tarayıcıya hiç dokunmaz.
 
 ## Geliştirme
 

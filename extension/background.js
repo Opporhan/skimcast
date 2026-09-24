@@ -65,28 +65,25 @@ function youtubeId(url) {
 // bir şey (denendi, doğrulandı: gerçek tıklama çalışıyor, .click() ve chrome.debugger ile üretilen
 // "tıklamalar" çalışmıyor). Bunu atlatmaya çalışmak (sahte-ama-güvenilir olay üretmek) yapmayacağımız bir
 // şey. Bunun yerine YouTube'u bu korumaya hiç takılmayan gerçek bir Python süreciyle (youtube_transcript_api)
-// okuyoruz: Chrome, transcript istendiğinde skills/summarize/native_host.py'yi anlık başlatıp kapatıyor
-// (native messaging) — sürekli açık duran bir sunucu değil. Kurulum tek seferlik: extension/install_native_host.py.
-const NATIVE_HOST = "com.skimcast.native_host";
+// okuyoruz — ama artık kullanıcının KENDİ bilgisayarında değil, barındırılan küçük bir sunucuda (bkz.
+// server/main.py): eskiden bunu yerel bir "native messaging host" (Python kurulumu + tek seferlik kayıt
+// betiği) yapıyordu, sıradan kullanıcılar (öğrenci/öğretmen) için bu engel kabul edilemez bulunduğundan
+// kaldırıldı. Bu, projenin "tamamen cihazda" mimarisinden TEK istisna: yalnızca YouTube transcript'inin
+// kendisi bu sunucudan geçiyor, hiçbir şey saklanmıyor. Sunucu kodu ve barındırma notları: server/.
+const SERVER_URL = "https://skimcast-server-369991083329.europe-west1.run.app";
 
-function fromYoutube(url, langs) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendNativeMessage(NATIVE_HOST, { action: "getTranscript", url, lang: langs.join(",") }, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new SkimError(
-          "YouTube için yerel yardımcı program kurulu değil ya da Chrome'a kayıtlı değil (tek seferlik kurulum " +
-          "gerekiyor). Terminalde çalıştır: python3 extension/install_native_host.py — sonra Chrome'u yeniden " +
-          `başlat. (${chrome.runtime.lastError.message})`
-        ));
-        return;
-      }
-      if (!response || !response.ok) {
-        reject(new SkimError(response?.error || "Yerel yardımcı programdan yanıt alınamadı."));
-        return;
-      }
-      resolve({ native: true, meta: response.meta, text: response.text, rawBlocks: response.blocks });
-    });
-  });
+async function fromYoutube(url, langs) {
+  let res;
+  try {
+    res = await fetch(`${SERVER_URL}/transcript?url=${encodeURIComponent(url)}&lang=${encodeURIComponent(langs.join(","))}`);
+  } catch (e) {
+    throw new SkimError(`Sunucuya bağlanılamadı: ${e.message}`);
+  }
+  const response = await res.json().catch(() => null);
+  if (!response || !response.ok) {
+    throw new SkimError(response?.error || `Sunucudan yanıt alınamadı (HTTP ${res.status}).`);
+  }
+  return { native: true, meta: response.meta, text: response.text, rawBlocks: response.blocks };
 }
 
 // ---------------------------------------------------------------- YouTube bölümleri (chapters)

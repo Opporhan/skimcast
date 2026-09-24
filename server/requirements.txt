@@ -1,0 +1,5 @@
+flask
+gunicorn
+youtube-transcript-api>=1.0
+yt-dlp>=2024.8
+trafilatura>=1.12

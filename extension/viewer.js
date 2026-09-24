@@ -567,7 +567,7 @@ async function init() {
         activateWordTracking(rows[idx], state.texts[idx]);
         rows[idx].scrollIntoView({ behavior: "smooth", block: "center" });
       }
-      // Kelime kelime takip. Bu blok native_host.py'den (YouTube) geldiyse blocks[idx].words var — bloğu
+      // Kelime kelime takip. Bu blok sunucudan (YouTube, bkz. server/main.py) geldiyse blocks[idx].words var — bloğu
       // oluşturan HAM, ince taneli altyazı parçalarının (her biri kendi GERÇEK başlama saniyesiyle) listesi.
       // O an hangi parçanın okunduğunu TAM olarak buluyoruz (araya müzik/sessizlik girse bile yanlış yere
       // atlamıyor — o parçanın son kelimesinde bekliyor).

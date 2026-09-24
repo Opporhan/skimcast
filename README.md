@@ -73,7 +73,7 @@ Several Claude Code skills already do "link → summary" ([audio-tldr-skill](htt
 
 ## Browser extension
 
-`extension/` is a separate, self-contained product in this repo: a Chrome/Edge extension that turns any YouTube video, podcast episode, or article into a searchable, click-to-jump transcript — no summary, no LLM, no API key, nothing leaves your browser.
+`extension/` is a separate, self-contained product in this repo: a Chrome/Edge extension that turns any YouTube video, podcast episode, or article into a searchable, click-to-jump transcript — no summary, no LLM, no API key. Everything (library, notes, translation, text-to-speech) runs on your device; the one exception is fetching a YouTube video's transcript itself, which goes through a small hosted server (see `server/`) because YouTube blocks that request from a browser — no local install needed on your side.
 
 ```
 Right-click a video (or paste a link in the popup) → transcript opens in a new tab
@@ -91,11 +91,10 @@ Right-click a video (or paste a link in the popup) → transcript opens in a new
 
 ### Install (unpacked, not on a store)
 
-1. Register the native helper (one-time, lets the extension read YouTube captions without hitting YouTube's bot detection): `python3 extension/install_native_host.py` (**on Windows use `python` instead of `python3`** — that command usually doesn't exist there; needs Python 3 installed first, with "Add python.exe to PATH" checked during setup)
-2. Open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**, click **Load unpacked**, select the `extension/` folder.
-3. Click the toolbar icon on any YouTube/podcast/article page, or right-click the page and choose **skimcast: Get Transcript**.
+1. Open `chrome://extensions` (or `edge://extensions`), enable **Developer mode**, click **Load unpacked**, select the `extension/` folder.
+2. Click the toolbar icon on any YouTube/podcast/article page, or right-click the page and choose **skimcast: Get Transcript**.
 
-This is a separate codebase from the Claude Code plugin above — the extension never calls Claude or any LLM; the plugin never touches the browser.
+No Python, no local install — just load the folder. This is a separate codebase from the Claude Code plugin above — the extension never calls Claude or any LLM; the plugin never touches the browser.
 
 ## Develop
 

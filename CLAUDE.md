@@ -21,9 +21,9 @@ Chrome/Edge uzantısı: link → aranabilir, tıkla-git yapılabilir transcript 
 **Özetleme YOK** — bir gece süren Groq (ücretsiz LLM) kota/güvenilirlik sorunlarından sonra bilinçli olarak
 terk edildi (bkz. git geçmişi); bunun yerine sağlam çalışan transcript-çekme parçası üzerine inşa edildi.
 
-- `background.js`: transcript çekme (YouTube için `skills/summarize/native_host.py`'ye native messaging;
-  podcast RSS/Apple/web sayfası doğrudan JS fetch ile), arşive kaydetme, sağ tık menüsü, YouTube açıklamasından
-  bölüm (chapter) tespiti (`fetchYoutubeChapters`, best-effort), videoyla-senkron mesaj yönlendirme (relay).
+- `background.js`: transcript çekme (YouTube için barındırılan `server/`e fetch; podcast RSS/Apple/web
+  sayfası doğrudan JS fetch ile), arşive kaydetme, sağ tık menüsü, YouTube açıklamasından bölüm (chapter)
+  tespiti (`fetchYoutubeChapters`, best-effort), videoyla-senkron mesaj yönlendirme (relay).
 - `youtube_sync.js`: YouTube izleme sayfasına enjekte edilen içerik betiği — video oynatma zamanını
   `background.js`'e bildirir (kimlik doğrulama gerektirmez, sadece "hangi video, kaçıncı saniye").
 - `viewer.js`: transcript'i gösterir — arama, tıkla-git, bölümler arası atlama, olası reklam tespiti, favori
@@ -37,8 +37,14 @@ terk edildi (bkz. git geçmişi); bunun yerine sağlam çalışan transcript-çe
   ve alıntıyla); yedekleme/geri yükleme (notlar dahil), Markdown dışa aktarma.
 - `theme.js` / `lang.js`: paylaşılan tema (açık/koyu) ve arayüz dili (TR/EN, tarayıcı dilinden bağımsız).
 - Testler: `extension/test.mjs` (saf mantık fonksiyonları) — `node extension/test.mjs`.
-- İki ürün arasında kod paylaşımı yok; `skills/summarize/native_host.py` sadece extension'ın YouTube
-  transcript kaynağı olarak kullanılıyor, Claude'a hiç istek atmıyor.
+- `server/`: uzantının YouTube transcript'ini çektiği barındırılan (Cloud Run) küçük Flask servisi —
+  `skills/summarize/transcript.py`'yi kullanır (kod paylaşımı SADECE bu tek dosya için var). Eskiden
+  bunun yerine kullanıcının kendi bilgisayarında Python kurup çalıştırdığı bir "native messaging host"
+  vardı (`native_host.py` + `install_native_host.py`); sıradan kullanıcılar için kurulum engeli kabul
+  edilemez bulunduğundan kaldırıldı (bkz. git geçmişi). Bu, projenin "tamamen cihazda" mimarisinden TEK
+  istisna — sadece YouTube transcript'i bu sunucudan geçiyor, sunucu hiçbir şey saklamıyor. Deploy:
+  repo kökünden `gcloud run deploy skimcast-server --source . --region europe-west1 --allow-unauthenticated`
+  (kök `Dockerfile`, `server/main.py`'yi çalıştırır). Basit IP başına bellek-içi rate limit var.
 - **TUZAK:** `extension/` klasöründe (ya da içindeki bir dosyayı hedefleyerek) `python3 -m py_compile`
   veya benzeri bytecode-üreten bir komut ÇALIŞTIRMA — `extension/__pycache__/` oluşturur, Chrome/Edge
   "_" ile başlayan dosya/klasör adlarını reddettiği için uzantı hiç yüklenemez ("Cannot load extension

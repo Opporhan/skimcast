@@ -1,8 +1,8 @@
 import importlib.util
 from pathlib import Path
 
-_path = Path(__file__).parents[1] / "skills" / "summarize" / "native_host.py"
-_spec = importlib.util.spec_from_file_location("native_host", _path)
+_path = Path(__file__).parents[1] / "server" / "main.py"
+_spec = importlib.util.spec_from_file_location("server_main", _path)
 nh = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(nh)
 
