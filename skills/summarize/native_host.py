@@ -19,6 +19,18 @@ import struct
 import sys
 from pathlib import Path
 
+# Windows'ta stdin/stdout varsayılan olarak METİN modunda açılıyor: "\n" karakterleri "\r\n"'ye
+# çevriliyor. Native messaging protokolü 4 baytlık ham bir uzunluk öneki kullanıyor (bkz. read_message/
+# send_message) — bu dönüşüm o baytları bozup mesajı okunamaz hale getirir. Chrome'un kendi
+# belgelerinde açıkça uyarılan bir sorun; sadece Windows'ta (diğer platformlarda zaten ikili mod) devreye
+# giriyor. (Windows tarafı gerçek bir Windows makinesinde test edilemedi — bu, belgelenen gereksinime
+# göre yapılmış ama DOĞRULANMAMIŞ bir düzeltme.)
+if sys.platform == "win32":
+    import msvcrt
+    import os
+    msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+    msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import transcript as tr
 

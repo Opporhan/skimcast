@@ -6,6 +6,11 @@ Bundan sonra tarayıcı, uzantı YouTube transcript'i istediğinde skills/summar
 kendisi anlık olarak başlatır ve kapatır — elle açıp bırakman gereken bir sunucu yok.
 
 Kullanım:  python3 extension/install_native_host.py
+
+NOT (dürüstlük payı): macOS/Linux tarafı gerçek makinelerde test edildi. Windows tarafı (registry
+kaydı + .bat başlatıcı) Chrome'un kendi belgelerindeki gereksinimlere göre yazıldı ama gerçek bir
+Windows makinesinde DOĞRULANAMADI — bu ortamda bir Windows test makinesi yok. Windows'ta sorun
+yaşarsan lütfen bildir.
 """
 
 import sys
@@ -35,43 +40,41 @@ LINUX_DIRS = {
     "Edge": ".config/microsoft-edge/NativeMessagingHosts",
     "Brave": ".config/BraveSoftware/Brave-Browser/NativeMessagingHosts",
 }
+# Windows: dosya yolu değil, HKEY_CURRENT_USER altında bir registry anahtarı — değeri manifest JSON
+# dosyasının tam yolu. https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging
+WIN_REGISTRY_KEYS = {
+    "Chrome": r"Software\Google\Chrome\NativeMessagingHosts",
+    "Chromium": r"Software\Chromium\NativeMessagingHosts",
+    "Edge": r"Software\Microsoft\Edge\NativeMessagingHosts",
+    "Brave": r"Software\BraveSoftware\Brave-Browser\NativeMessagingHosts",
+}
 
 
-def hosts_dirs() -> dict:
-    home = Path.home()
-    if sys.platform == "darwin":
-        return {name: home / rel for name, rel in MAC_DIRS.items()}
-    if sys.platform.startswith("linux"):
-        return {name: home / rel for name, rel in LINUX_DIRS.items()}
+def build_manifest_and_launcher(repo_root: Path, host_script: Path) -> tuple:
+    """Platforma göre bir başlatıcı betik (mac/linux: .sh, Windows: .bat) ve onu gösteren native
+    messaging manifest'ini (dict) üretir. Ortak mantık üç platform için de aynı: tarayıcı bu betiği
+    kısıtlı bir PATH ile başlattığı için doğrudan "python3"e değil, şu an çalışan yorumlayıcının TAM
+    yoluna sabitlenmiş bir kabuk betiğine işaret ediyoruz (aksi halde en sık görülen "Native host has
+    exited" hatası oluyor); stderr de teşhis için bir günlük dosyasına yazılıyor."""
     if sys.platform == "win32":
-        raise SystemExit(
-            "Windows'ta kayıt bir registry anahtarı gerektirir; bu betik yalnızca macOS/Linux'u destekler.\n"
-            "Elle kurulum: https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging#native-messaging-host-location"
+        log_dir = Path.home() / "AppData" / "Local" / "skimcast"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        launcher = repo_root / "skills" / "summarize" / "native_host_launcher.bat"
+        launcher.write_text(
+            "@echo off\r\n"
+            f'"{sys.executable}" "{host_script}" %* 2>>"{log_dir}\\native_host.log"\r\n',
+            encoding="utf-8",
         )
-    raise SystemExit(f"Desteklenmeyen platform: {sys.platform}")
-
-
-def main() -> None:
-    repo_root = Path(__file__).resolve().parent.parent
-    host_script = repo_root / "skills" / "summarize" / "native_host.py"
-    if not host_script.exists():
-        raise SystemExit(f"Bulunamadı: {host_script}")
-
-    host_script.chmod(host_script.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-
-    # Tarayıcı bu betiği bir GUI uygulaması olarak başlatır; PATH'i Terminal'inkinden çok daha kısıtlı
-    # olabilir ve "python3" hiç bulunamayabilir ("Native host has exited" hatasının en sık sebebi).
-    # Bu yüzden doğrudan native_host.py'ye değil, şu an çalışan python3'ün TAM yoluna sabitlenmiş bir
-    # kabuk betiğine işaret ediyoruz. stderr de ileride teşhis için bir günlük dosyasına yazılıyor.
-    log_dir = Path.home() / ".cache" / "skimcast"
-    log_dir.mkdir(parents=True, exist_ok=True)
-    launcher = repo_root / "skills" / "summarize" / "native_host_launcher.sh"
-    launcher.write_text(
-        "#!/bin/sh\n"
-        f'exec "{sys.executable}" "{host_script}" "$@" 2>>"{log_dir}/native_host.log"\n',
-        encoding="utf-8",
-    )
-    launcher.chmod(launcher.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    else:
+        log_dir = Path.home() / ".cache" / "skimcast"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        launcher = repo_root / "skills" / "summarize" / "native_host_launcher.sh"
+        launcher.write_text(
+            "#!/bin/sh\n"
+            f'exec "{sys.executable}" "{host_script}" "$@" 2>>"{log_dir}/native_host.log"\n',
+            encoding="utf-8",
+        )
+        launcher.chmod(launcher.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
     manifest = {
         "name": HOST_NAME,
@@ -80,16 +83,56 @@ def main() -> None:
         "type": "stdio",
         "allowed_origins": [f"chrome-extension://{EXTENSION_ID}/"],
     }
-    body = json.dumps(manifest, indent=2, ensure_ascii=False)
+    return manifest, launcher, log_dir
 
+
+def install_unix(manifest: dict) -> list:
+    dirs = MAC_DIRS if sys.platform == "darwin" else LINUX_DIRS
+    body = json.dumps(manifest, indent=2, ensure_ascii=False)
     written = []
-    for name, out_dir in hosts_dirs().items():
-        # tarayıcının kendi "Application Support" klasörü yoksa muhtemelen kurulu değil; boşuna klasör açma
+    for name, rel in dirs.items():
+        out_dir = Path.home() / rel
+        # tarayıcının kendi "Application Support"/".config" klasörü yoksa muhtemelen kurulu değil;
+        # boşuna klasör açma.
         if not out_dir.parent.exists():
             continue
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / f"{HOST_NAME}.json").write_text(body, encoding="utf-8")
         written.append(name)
+    return written
+
+
+def install_windows(manifest: dict, repo_root: Path) -> list:
+    import winreg
+
+    manifest_path = repo_root / "skills" / "summarize" / f"{HOST_NAME}.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    written = []
+    for name, reg_path in WIN_REGISTRY_KEYS.items():
+        try:
+            key = winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, f"{reg_path}\\{HOST_NAME}")
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, str(manifest_path))
+            winreg.CloseKey(key)
+            written.append(name)
+        except OSError:
+            continue
+    return written
+
+
+def main() -> None:
+    if sys.platform not in ("darwin", "win32") and not sys.platform.startswith("linux"):
+        raise SystemExit(f"Desteklenmeyen platform: {sys.platform}")
+
+    repo_root = Path(__file__).resolve().parent.parent
+    host_script = repo_root / "skills" / "summarize" / "native_host.py"
+    if not host_script.exists():
+        raise SystemExit(f"Bulunamadı: {host_script}")
+    if sys.platform != "win32":
+        host_script.chmod(host_script.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    manifest, launcher, log_dir = build_manifest_and_launcher(repo_root, host_script)
+    written = install_windows(manifest, repo_root) if sys.platform == "win32" else install_unix(manifest)
 
     if not written:
         raise SystemExit("Desteklenen bir tarayıcı (Chrome/Edge/Chromium/Brave) bulunamadı.")
@@ -97,7 +140,7 @@ def main() -> None:
     print(f"Başlatıcı: {launcher}")
     print(f"Kaydedildi: {', '.join(written)}")
     print("Kullandığın tarayıcıyı tamamen kapat ve yeniden aç, sonra uzantıdan YouTube linkiyle dene.")
-    print(f"Sorun olursa günlük: {log_dir}/native_host.log")
+    print(f"Sorun olursa günlük: {log_dir}\\native_host.log" if sys.platform == "win32" else f"Sorun olursa günlük: {log_dir}/native_host.log")
 
 
 if __name__ == "__main__":
