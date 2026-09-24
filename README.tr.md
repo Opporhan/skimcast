@@ -67,11 +67,14 @@ skimcast bir [MCP](https://modelcontextprotocol.io) sunucusu da içerir; Claude 
 Bir videoya sağ tıkla (ya da popup'a linki yapıştır) → transcript yeni bir sekmede açılır
 ```
 
-- **Oku ve gez** — transcript içinde ara, herhangi bir zaman damgasına tıklayınca video o saniyeden açılır, zaman damgalarını açıp kapat, açık/koyu tema.
-- **Kişisel kütüphane** — getirdiğin her transcript yerelde saklanır; klasörlere ayır (kendi ikonun ya da yüklediğin bir görselle), önemli satırları yıldızla, getirdiğin her şeyde arama yap.
+- **Oku ve gez** — transcript içinde ara, herhangi bir zaman damgasına tıklayınca video o saniyeden açılır, bölümler arası atla (video açıklamasından otomatik tespit edilir), zaman damgalarını açıp kapat, açık/koyu tema.
+- **Videoyla senkron takip** — videoyu kendi YouTube sekmesinde izlerken transcript kendiliğinden kayar, o an konuşulan satırı (ve kelime kelime, tam kelimeyi) vurgular.
+- **Sesli okuma** — cihaz üzerinde, paragraf paragraf ya da istediğin satırdan başlayarak, kelime kelime sarı vurguyla.
+- **Kişisel kütüphane** — getirdiğin her transcript yerelde saklanır; videoları, favori satırları ve bağımsız notları klasörlere ayır (kendi ikonun ya da yüklediğin bir görselle), önemli satırları yıldızla, getirdiğin her şeyde arama yap. "Bunu hatırlıyor musun?" kartı ara sıra eski bir favoriyi hatırlatır.
+- **Notlar** — tek, birleşik bir not sistemi: bir videonun tamamına, tek bir satırına ya da tamamen bağımsız bir konuya not al — hepsi aynı "Notlarım" sekmesinde, kendi ikonuyla.
 - **Cihaz üzerinde çeviri** — Chrome'un yerleşik Translator API'siyle transcript 9 dile çevrilir, tamamen çevrimdışı, kota yok.
 - **Dışa aktar** — kopyala, `.txt` ya da gerçek bir `.pdf` olarak indir (Türkçe karakterler gömülü bir fontla doğru görünüyor), ya da bir klasörü Obsidian/Notion için Markdown olarak dışa aktar.
-- **Yedekle** — tüm kütüphanen (klasörler, favoriler, videolar) tek bir dosyada; başka bir bilgisayarda geri yükle.
+- **Yedekle** — tüm kütüphanen (klasörler, favoriler, videolar, notlar) tek bir dosyada; başka bir bilgisayarda geri yükle.
 - **Arayüz dili** — uzantının kendi arayüz dilini tarayıcı dilinden bağımsız olarak Türkçe/İngilizce değiştir.
 
 ### Kurulum (paketlenmemiş, mağazada değil)

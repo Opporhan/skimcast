@@ -24,7 +24,7 @@ const FOLDERS_KEY = "skimcastFolders";
 const NO_FOLDER = ""; // klasörsüz
 const DEFAULT_ICON = "📁";
 const ICON_CHOICES = [
-  "📁", "📂", "🗂️", "🤖", "🧠", "💡", "📚", "📖", "✏️", "🎬", "🎙️", "🎧", "📷",
+  "📁", "🗂️", "🤖", "🧠", "💡", "📚", "📖", "✏️", "🎬", "🎙️", "🎧", "📷",
   "💼", "💰", "📈", "🎓", "🔬", "🧪", "⚗️", "🩺", "⚖️", "🏛️", "🌍", "🗺️", "✈️",
   "🎮", "⚽", "🏋️", "🍳", "🎨", "🎵", "🎭", "❤️", "⭐", "🔥", "🚀", "🌱", "🐾",
 ];
@@ -412,12 +412,11 @@ function noteRowHtml(n) {
     </div>`;
 }
 
-// Yeni not oluşturmak İÇİN de, var olan bir notu düzenlemek İÇİN de aynı panel — başlık + gövde.
-// existing verilirse "Sil" düğmesi de eklenir.
 const DEFAULT_NOTE_ICON = "📝";
 
-// İkon seçici tam olarak klasör oluşturma panelindeki AYNI desen (ICON_CHOICES/iconHtml, isteğe bağlı
-// resim yükleme) — "klasördekilerle aynı olacak şekilde" isteğine göre.
+// Yeni not oluşturmak İÇİN de, var olan bir notu düzenlemek İÇİN de aynı panel — başlık + gövde + ikon.
+// existing verilirse "Sil" düğmesi de eklenir. İkon seçici tam olarak klasör oluşturma panelindeki AYNI
+// desen (ICON_CHOICES/iconHtml, isteğe bağlı resim yükleme) — "klasördekilerle aynı olacak şekilde".
 function openNoteModal(existing) {
   return new Promise((resolve) => {
     let icon = existing?.icon || DEFAULT_NOTE_ICON;
@@ -549,6 +548,7 @@ async function init() {
 
   const listEl = document.getElementById("list");
   const notesListEl = document.getElementById("notesList");
+  const notesAllCountEl = document.getElementById("notesAllCount");
   const notesSectionEl = document.getElementById("notesSection");
   const foldersSectionEl = document.getElementById("foldersSection");
   const controlsRowEl = document.getElementById("controlsRow");
@@ -624,7 +624,7 @@ async function init() {
   // filtresine bağlı değil (bir notun klasörü varsa satırında etiket olarak görünüyor, ama Notlarım
   // sekmesi kendi başına her zaman TÜM notları listeliyor).
   function renderNotesList(allNotes) {
-    document.getElementById("notesAllCount").textContent = String(allNotes.length);
+    notesAllCountEl.textContent = String(allNotes.length);
     notesListEl.innerHTML = allNotes.length ? allNotes.map(noteRowHtml).join("") : `<p class="hint">${t("no_notes")}</p>`;
   }
 
@@ -725,7 +725,7 @@ async function init() {
     const all = await chrome.storage.local.get(null);
     const backup = {};
     for (const k in all) {
-      if (k.startsWith("skimcastArchive:") || k === ARCHIVE_INDEX_KEY || k === FOLDERS_KEY) backup[k] = all[k];
+      if (k.startsWith("skimcastArchive:") || k === ARCHIVE_INDEX_KEY || k === FOLDERS_KEY || k === NOTES_KEY) backup[k] = all[k];
     }
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json;charset=utf-8" });
     const url = URL.createObjectURL(blob);

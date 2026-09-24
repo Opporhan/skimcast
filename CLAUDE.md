@@ -22,12 +22,19 @@ Chrome/Edge uzantısı: link → aranabilir, tıkla-git yapılabilir transcript 
 terk edildi (bkz. git geçmişi); bunun yerine sağlam çalışan transcript-çekme parçası üzerine inşa edildi.
 
 - `background.js`: transcript çekme (YouTube için `skills/summarize/native_host.py`'ye native messaging;
-  podcast RSS/Apple/web sayfası doğrudan JS fetch ile), arşive kaydetme, sağ tık menüsü.
-- `viewer.js`: transcript'i gösterir — arama, tıkla-git, olası reklam tespiti, favori (yıldız + klasöre
-  taşıma), cihaz üzerinde çeviri (`Translator`/`LanguageDetector` API, ücretsiz, API anahtarsız), TXT/PDF
+  podcast RSS/Apple/web sayfası doğrudan JS fetch ile), arşive kaydetme, sağ tık menüsü, YouTube açıklamasından
+  bölüm (chapter) tespiti (`fetchYoutubeChapters`, best-effort), videoyla-senkron mesaj yönlendirme (relay).
+- `youtube_sync.js`: YouTube izleme sayfasına enjekte edilen içerik betiği — video oynatma zamanını
+  `background.js`'e bildirir (kimlik doğrulama gerektirmez, sadece "hangi video, kaçıncı saniye").
+- `viewer.js`: transcript'i gösterir — arama, tıkla-git, bölümler arası atlama, olası reklam tespiti, favori
+  (yıldız + klasöre taşıma), videoyla senkron takip ("🔗", kelime kelime yaklaşık vurgu), sesli okuma
+  (Web Speech API, kelime kelime GERÇEK vurgu — `boundary` olayı), video notu (paylaşılan Notlarım deposuna
+  yazar), cihaz üzerinde çeviri (`Translator`/`LanguageDetector` API, ücretsiz, API anahtarsız), TXT/PDF
   indirme (PDF: `vendor/jspdf.umd.min.js` + Türkçe karakterler için gömülü font).
-- `library.js`: kütüphane — klasörler (özel ikon/görsel, not, sabitleme), arama, favoriler, yedekleme/geri
-  yükleme, Markdown dışa aktarma.
+- `library.js`: kütüphane — "Dosyalarım"/"Notlarım" iki sekme; Dosyalarım'da klasörler (özel ikon/görsel,
+  not, sabitleme), arama, favoriler, "bunu hatırlıyor musun?" hatırlatma kartı; Notlarım'da birleşik not
+  sistemi (`skimcastNotes` — video notu/favori notu/serbest not hepsi burada, isteğe bağlı kaynak bağlantısı
+  ve alıntıyla); yedekleme/geri yükleme (notlar dahil), Markdown dışa aktarma.
 - `theme.js` / `lang.js`: paylaşılan tema (açık/koyu) ve arayüz dili (TR/EN, tarayıcı dilinden bağımsız).
 - Testler: `extension/test.mjs` (saf mantık fonksiyonları) — `node extension/test.mjs`.
 - İki ürün arasında kod paylaşımı yok; `skills/summarize/native_host.py` sadece extension'ın YouTube

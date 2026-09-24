@@ -138,7 +138,7 @@
     "message": "Yedek indirildi."
   },
   "restore_warning": {
-    "message": "Bu, mevcut kütüphaneni (klasörler, videolar, favoriler) seçtiğin yedek dosyasındakiyle değiştirecek. Devam edilsin mi?"
+    "message": "Bu, mevcut kütüphaneni (klasörler, videolar, favoriler, notlar) seçtiğin yedek dosyasındakiyle değiştirecek. Devam edilsin mi?"
   },
   "restore_confirm_btn": {
     "message": "Geri Yükle"

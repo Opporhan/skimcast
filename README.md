@@ -79,11 +79,14 @@ Several Claude Code skills already do "link → summary" ([audio-tldr-skill](htt
 Right-click a video (or paste a link in the popup) → transcript opens in a new tab
 ```
 
-- **Read & navigate** — search inside the transcript, click any timestamp to jump the video to that second, toggle timestamps on/off, switch light/dark theme.
-- **Personal library** — every transcript you fetch is saved locally; organize them into folders (with your own icon or uploaded image), star favorite lines, search across everything you've ever fetched.
+- **Read & navigate** — search inside the transcript, click any timestamp to jump the video to that second, jump between chapters (auto-detected from the video description), toggle timestamps on/off, switch light/dark theme.
+- **Follow along with the video** — while you watch the video in its own YouTube tab, the transcript auto-scrolls and highlights the line (and, word by word, the exact word) being spoken.
+- **Read aloud** — on-device text-to-speech, per-paragraph or from any line, with word-by-word highlighting as it speaks.
+- **Personal library** — every transcript you fetch is saved locally; organize videos, favorite lines, and free-standing notes into folders (with your own icon or uploaded image), star favorite lines, search across everything you've ever fetched. A "remember this?" card occasionally resurfaces an old favorite.
+- **Notes** — one unified notes system: jot a note about a whole video, about one specific line, or completely free-standing — all in the same "My Notes" tab, each with its own icon.
 - **Translate on-device** — Chrome's built-in Translator API translates the transcript into any of 9 languages, fully offline, no quota.
 - **Export** — copy, download as `.txt` or a real `.pdf` (Turkish/accented characters render correctly via an embedded font), or export a folder as Markdown for Obsidian/Notion.
-- **Back up** — one file holds your whole library (folders, favorites, videos); restore it on another machine.
+- **Back up** — one file holds your whole library (folders, favorites, videos, notes); restore it on another machine.
 - **UI language** — switch the extension's own interface between Turkish and English, independent of your browser's language.
 
 ### Install (unpacked, not on a store)

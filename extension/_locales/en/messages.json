@@ -138,7 +138,7 @@
     "message": "Backup downloaded."
   },
   "restore_warning": {
-    "message": "This will replace your current library (folders, videos, favorites) with the one in the backup file you picked. Continue?"
+    "message": "This will replace your current library (folders, videos, favorites, notes) with the one in the backup file you picked. Continue?"
   },
   "restore_confirm_btn": {
     "message": "Restore"
