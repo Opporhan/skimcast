@@ -12,7 +12,16 @@ function browserDefaultLang() {
 
 async function getUiLang() {
   const { [UI_LANG_KEY]: lang } = await chrome.storage.local.get(UI_LANG_KEY);
-  return lang || browserDefaultLang();
+  if (lang) return lang;
+  // Bu cihazda hiç ayarlanmamış — kullanıcı aynı Google hesabıyla başka bir cihazda dil seçtiyse,
+  // chrome.storage.sync (Chrome'un kendi ücretsiz, sunucusuz senkronizasyonu — ekstra ağ isteği/maliyet
+  // yok) üzerinden o tercihi buraya taşıyoruz. Kurumsal politika vb. yüzden storage.sync kapalıysa
+  // sessizce tarayıcı diline düşüyoruz.
+  try {
+    const { [UI_LANG_KEY]: synced } = await chrome.storage.sync.get(UI_LANG_KEY);
+    if (synced) { chrome.storage.local.set({ [UI_LANG_KEY]: synced }); return synced; }
+  } catch { /* storage.sync kullanılamıyor, sorun değil */ }
+  return browserDefaultLang();
 }
 
 async function initLang() {
@@ -35,6 +44,7 @@ function t(key) {
 
 async function setUiLang(lang) {
   await chrome.storage.local.set({ [UI_LANG_KEY]: lang });
+  chrome.storage.sync.set({ [UI_LANG_KEY]: lang }).catch(() => {}); // diğer cihazlara da taşınsın
   location.reload(); // her yeri (butonlar, başlıklar, tüm metin) tazeden en basit ve güvenilir yol
 }
 

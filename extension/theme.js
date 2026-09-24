@@ -10,7 +10,14 @@ function systemDefault() {
 
 async function getTheme() {
   const { [THEME_KEY]: theme } = await chrome.storage.local.get(THEME_KEY);
-  return theme || systemDefault();
+  if (theme) return theme;
+  // Bu cihazda hiç ayarlanmamış — chrome.storage.sync'te (Chrome'un kendi ücretsiz senkronizasyonu)
+  // başka bir cihazdan gelen bir tercih varsa onu kullan (bkz. lang.js'deki aynı desen).
+  try {
+    const { [THEME_KEY]: synced } = await chrome.storage.sync.get(THEME_KEY);
+    if (synced) { chrome.storage.local.set({ [THEME_KEY]: synced }); return synced; }
+  } catch { /* storage.sync kullanılamıyor, sorun değil */ }
+  return systemDefault();
 }
 
 function applyThemeAttr(theme) {
@@ -24,6 +31,7 @@ async function initTheme() {
 async function toggleTheme() {
   const next = (await getTheme()) === "dark" ? "light" : "dark";
   await chrome.storage.local.set({ [THEME_KEY]: next });
+  chrome.storage.sync.set({ [THEME_KEY]: next }).catch(() => {}); // diğer cihazlara da taşınsın
   applyThemeAttr(next);
   return next;
 }
