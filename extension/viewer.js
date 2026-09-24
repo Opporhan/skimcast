@@ -192,7 +192,7 @@ async function detectSourceLanguage(sampleText) {
 // artırıyoruz — entry.translations önbelleği, hangi sürümle üretildiği bu numarayla eşleşmiyorsa
 // (translateBtn dinleyicisine bkz.) geçersiz sayılıp otomatik yeniden çevriliyor. Bunsuz, önceden bir
 // kere çevrilmiş bir video hep eski (düzeltmeden önceki) çeviriyi göstermeye devam ederdi.
-const TRANSLATION_CACHE_VERSION = 3;
+const TRANSLATION_CACHE_VERSION = 4;
 const LEAKED_TAG_RE = /<[^<>]*>/g;
 function cleanTranslation(text, fallback) {
   if (!text) return fallback;
@@ -1176,8 +1176,14 @@ async function init() {
             try {
               const { protectedText, numbers } = protectNumbers(sentence);
               let cleaned = cleanTranslation(await translator.translate(protectedText), protectedText);
-              // Çıktı şüpheli derecede kısaysa (muhtemelen içerik atlanmış/özetlenmiş) bir kere daha
-              // deniyoruz — model aynı girdide farklı bir denemede daha tam bir çıktı üretebiliyor.
+              // Çıktı şüpheli derecede kısaysa bir kere daha deniyoruz — model aynı girdide farklı bir
+              // denemede daha tam bir çıktı üretebiliyor. AMA: hâlâ kısa çıksa bile artık ORİJİNAL DİLE
+              // DÜŞMÜYORUZ — bu, Türkçe gibi eklemeli dillerde YANLIŞ ALARM veriyordu (doğru bir Türkçe
+              // çeviri, İngilizce kaynaktan kelime SAYISI olarak çok daha kısa olabilir — "sondan
+              // eklemeli" bir dilde bu normal, eksik demek değil) ve sonuçta çevrilmiş Türkçe metnin
+              // İÇİNE rastgele İngilizce cümleler karışmasına yol açıyordu — kullanıcı bunu (haklı olarak)
+              // hata olarak bildirdi. Dil karışması, terslikli-ama-tek-dilde bir çeviriden HER ZAMAN daha
+              // kötü — o yüzden elimizdeki çeviriyi (kısa da olsa) kullanıyoruz, orijinali göstermiyoruz.
               if (isSuspiciouslyShort(sentence, cleaned)) {
                 try {
                   const retry = cleanTranslation(await translator.translate(protectedText), protectedText);
@@ -1185,9 +1191,7 @@ async function init() {
                 } catch { /* yeniden deneme başarısız, ilk sonuçla devam */ }
               }
               if (numbers.length) cleaned = restoreNumbers(cleaned, numbers);
-              // İki denemeden sonra da hâlâ eksikse: eksik/yanlış bir çeviriyi doğruymuş gibi göstermek
-              // yerine o cümleyi ORİJİNAL diliyle bırakmak daha dürüst.
-              translatedParts.push(isSuspiciouslyShort(sentence, cleaned) ? sentence : cleaned);
+              translatedParts.push(cleaned);
             } catch {
               // Tek bir cümlede çeviri motoru hata verirse tüm bloğu iptal etmek yerine o cümleyi
               // orijinal haliyle bırakıp devam ediyoruz.
